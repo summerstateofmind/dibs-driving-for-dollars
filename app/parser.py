@@ -23,7 +23,8 @@ Two message types:
 1. CAPTURE — contains a property street address, possibly with condition notes and flags.
 Flags: -ns (no skip trace), -nc (no campaign), -hot (start immediately)
 Return:
-{"type":"capture","address":"<street number and name only>","city":"<default Seattle>","state":"<default WA>","zip":"<if given, else empty>","notes":"<condition observations about the property>","flags":["-ns"]}
+{"type":"capture","address":"<street number and name only>","city":"<default Seattle>","state":"<default WA>","zip":"<infer zip code from Seattle neighborhood/street if possible, else empty>","notes":"<condition observations about the property>","flags":["-ns"]}
+The user operates in Seattle, WA. Always default city to Seattle and state to WA unless specified otherwise. Infer the 5-digit zip code from the street address when you can (e.g. 44th Ave SW in West Seattle is 98136, Rose St in Georgetown is 98108).
 
 2. COMMAND — starts with a keyword: done, skip, start, kill, status, note, help
 Return:
