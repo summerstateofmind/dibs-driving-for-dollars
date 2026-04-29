@@ -8,8 +8,8 @@ from fastapi.responses import Response
 from app import config
 from app.airtable_client import create_lead, find_leads_by_address, update_lead, get_all_leads
 from app.parser import parse_sms
+from app.reply import send_reply, set_reply_channel
 from app.skip_trace import skip_trace
-from app.sms import send_sms
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -35,9 +35,31 @@ async def handle_sms(request: Request, background_tasks: BackgroundTasks):
     if not body:
         return Response(content=EMPTY_TWIML, media_type="text/xml")
 
-    log.info("Received: %s", body)
+    log.info("Received SMS: %s", body)
+    set_reply_channel("sms")
     background_tasks.add_task(process_sms, body)
     return Response(content=EMPTY_TWIML, media_type="text/xml")
+
+
+@app.post("/telegram")
+async def handle_telegram(request: Request, background_tasks: BackgroundTasks):
+    """Telegram Bot webhook. Returns 200 immediately, processes in background."""
+    data = await request.json()
+    message = data.get("message", {})
+    chat_id = str(message.get("chat", {}).get("id", ""))
+    text = (message.get("text") or "").strip()
+
+    if config.TELEGRAM_CHAT_ID and chat_id != config.TELEGRAM_CHAT_ID:
+        log.warning("Rejected Telegram from chat_id %s", chat_id)
+        return {"ok": True}
+
+    if not text:
+        return {"ok": True}
+
+    log.info("Received Telegram: %s", text)
+    set_reply_channel("telegram", chat_id=chat_id)
+    background_tasks.add_task(process_sms, text)
+    return {"ok": True}
 
 
 @app.get("/health")
@@ -60,10 +82,10 @@ def process_sms(body: str):
         elif msg_type == "command":
             handle_command(parsed)
         else:
-            send_sms("Couldn't parse that. Text HELP for commands.")
+            send_reply("Couldn't parse that. Text HELP for commands.")
     except Exception:
         log.exception("Error processing: %s", body)
-        send_sms("Something went wrong. Try again?")
+        send_reply("Something went wrong. Try again?")
 
 
 # --- Capture flow ---
@@ -81,7 +103,7 @@ def handle_capture(parsed: dict):
     existing = find_leads_by_address(address)
     if existing:
         lead = existing[0]["fields"]
-        send_sms(
+        send_reply(
             f"Dupe — already tracking {lead.get('Address', address)}. "
             f"Status: {lead.get('Status', '?')}. "
             f"Text 'status {address.split()[0]}' for details."
@@ -148,7 +170,7 @@ def handle_capture(parsed: dict):
     else:
         reply = f"Tracked {address} (no skip trace).\nStep: {campaign_step}"
 
-    send_sms(reply)
+    send_reply(reply)
 
 
 # --- Command handlers ---
@@ -158,7 +180,7 @@ def handle_command(parsed: dict):
     cmd = parsed.get("command", "")
 
     if cmd == "help":
-        send_sms(
+        send_reply(
             "D4D Commands:\n"
             "<address> = Log + skip + campaign\n"
             "<address> -ns = No skip trace\n"
@@ -178,13 +200,13 @@ def handle_command(parsed: dict):
 
     fragment = parsed.get("address_fragment", "")
     if not fragment:
-        send_sms(f"Need an address. E.g.: {cmd} 4823 32nd")
+        send_reply(f"Need an address. E.g.: {cmd} 4823 32nd")
         return
 
     leads = find_leads_by_address(fragment)
 
     if not leads:
-        send_sms(f"No lead matching '{fragment}'.")
+        send_reply(f"No lead matching '{fragment}'.")
         return
 
     if len(leads) > 1:
@@ -192,7 +214,7 @@ def handle_command(parsed: dict):
             f"{i + 1}. {l['fields'].get('Address', '?')}"
             for i, l in enumerate(leads[:5])
         )
-        send_sms(f"Multiple matches:\n{options}")
+        send_reply(f"Multiple matches:\n{options}")
         return
 
     lead = leads[0]
@@ -218,11 +240,11 @@ def handle_command(parsed: dict):
                 lines.append(f"Email: {email}")
         if fields.get("Condition Notes"):
             lines.append(f"Notes: {fields['Condition Notes']}")
-        send_sms("\n".join(lines))
+        send_reply("\n".join(lines))
 
     elif cmd == "kill":
         update_lead(lead["id"], {"Status": "Dead"})
-        send_sms(f"Killed {addr}. RIP.")
+        send_reply(f"Killed {addr}. RIP.")
 
     elif cmd == "note":
         note_text = parsed.get("note_text", "")
@@ -230,16 +252,16 @@ def handle_command(parsed: dict):
         ts = datetime.now(timezone.utc).strftime("%m/%d %I:%M%p")
         updated = f"{existing_notes}\n[{ts}] {note_text}".strip()
         update_lead(lead["id"], {"Notes": updated})
-        send_sms(f"Note added to {addr}.")
+        send_reply(f"Note added to {addr}.")
 
     elif cmd == "done":
         handle_done(lead)
 
     elif cmd in ("skip", "start"):
-        send_sms(f"'{cmd}' coming soon.")
+        send_reply(f"'{cmd}' coming soon.")
 
     else:
-        send_sms(f"Unknown command: {cmd}. Text HELP.")
+        send_reply(f"Unknown command: {cmd}. Text HELP.")
 
 
 CAMPAIGN_SEQUENCE = ["Not Started", "Call / SMS", "Door Knock", "Letter 1", "Email", "Letter 2", "Quarterly Drip"]
@@ -257,7 +279,7 @@ def handle_done(lead: dict):
         idx = 0
 
     if idx >= len(CAMPAIGN_SEQUENCE) - 1:
-        send_sms(f"{addr} is already at {current_step}. Campaign complete.")
+        send_reply(f"{addr} is already at {current_step}. Campaign complete.")
         return
 
     next_step = CAMPAIGN_SEQUENCE[idx + 1]
@@ -269,7 +291,7 @@ def handle_done(lead: dict):
         "Campaign Step": next_step,
         "Notes": updated_notes,
     })
-    send_sms(f"{addr}\nDone: {current_step}\nNext: {next_step}")
+    send_reply(f"{addr}\nDone: {current_step}\nNext: {next_step}")
 
 
 def check_owner_occupied(property_address: str, mailing_address: str) -> str:
@@ -303,4 +325,4 @@ def handle_list():
     for status in ["Campaigning", "Contacted", "New", "Under Contract", "Dead"]:
         if status in counts:
             lines.append(f"  {status}: {counts[status]}")
-    send_sms("\n".join(lines))
+    send_reply("\n".join(lines))

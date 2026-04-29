@@ -6,12 +6,12 @@
 
 ## Who I am / context you need
 
-- I'm a real estate investor (Trillium Partners LLC, Three Willows Capital), based in Seattle, doing off-market acquisitions.
-- Day job: AWS Technical Infrastructure PM. I'm comfortable with Python, AWS, Twilio-style APIs, and I use Claude Code daily.
+- I'm a real estate investor ([Your LLC], [Your Company]), doing off-market acquisitions.
+- Day job: technical PM. I'm comfortable with Python, AWS, Twilio-style APIs, and I use Claude Code daily.
 - I have an existing manual outbound workflow (skip-traced list → manual click-to-dial → AI-assisted live convo → manual SMS). **This tool is separate from that.** No data sharing required.
-- My code-violations data product (Creai) is on hold in favor of FlaggedLeads. **Neither intersects with this tool today.** Treat this as a fully standalone personal tool.
+- My other side projects ([other project], [other project]) don't intersect with this tool today. Treat this as a fully standalone personal tool.
 - **I'm on iPhone for mobile, PC for desktop.** No iMessage on desktop — important for the architecture (see below).
-- **WA state TCPA / autodialer rules:** worth noting only because **this tool only ever messages me.** Outbound to property owners is always a manual action I take outside this tool. Build accordingly — no code path should ever SMS a third party.
+- **TCPA / state autodialer rules:** worth noting only because **this tool only ever messages me.** Outbound to property owners is always a manual action I take outside this tool. Build accordingly — no code path should ever SMS a third party.
 
 ## What this tool is for
 
@@ -19,7 +19,7 @@ When I'm walking or driving the neighborhood and spot a house I want to investig
 
 1. Lets me text the address to a number from my phone, hands-free if possible.
 2. Logs it, skip-traces the owner, and starts a default outreach campaign — all in one shot.
-3. Pings me when the next action is due ("Time to mail Letter 1 to 4823 32nd Ave NE").
+3. Pings me when the next action is due ("Time to mail Letter 1 to 1234 Example St NE").
 4. Lets me mark actions done and modify campaigns via SMS commands.
 
 This tool replaces the role of a Driving-for-Dollars SaaS (DealMachine, PropStream's D4D, etc.) and the lightweight CRM piece for these specific spontaneous leads. It is **not** trying to replace skip-trace tools, dialers, or my outbound calling rig.
@@ -52,7 +52,7 @@ Airtable interface views to build:
 ## Core user flow (happy path)
 
 ```
-Me (walking past house): SMS → "4823 32nd Ave NE Seattle. Vacant, plywood on
+Me (walking past house): SMS → "1234 Example St NE Anytown. Vacant, plywood on
                                   one window, lawn knee-high, no car."
 
 Tool: 1. Parses address + condition notes (LLM)
@@ -60,16 +60,16 @@ Tool: 1. Parses address + condition notes (LLM)
       3. Creates Lead in Airtable, status = Active Campaign
       4. Fires REISkip → writes owner, phones, emails to lead
       5. Initializes default campaign (action records with due dates)
-      6. SMS reply: "Logged 4823 32nd Ave NE. Owner: Janice Holcomb.
+      6. SMS reply: "Logged 1234 Example St NE. Owner: Jane Smith.
                      2 phones, 1 email. First action (Letter 1) due Day 7."
 
 Me (later, at PC): Reviews lead in Airtable. Drafts and mails Letter 1 on Day 7.
-SMS → "done letter 1 4823 32nd"
+SMS → "done letter 1 1234 Example"
 
 Tool: Marks Action 1 complete, schedules Action 2.
 
-Tool (3 weeks later): SMS → "Door knock due today: 4823 32nd Ave NE.
-                              Owner: Janice Holcomb. Last touch: Letter 1 mailed Nov 2."
+Tool (3 weeks later): SMS → "Door knock due today: 1234 Example St NE.
+                              Owner: Jane Smith. Last touch: Letter 1 mailed Nov 2."
 ```
 
 **Default behavior on capture: skip trace + start campaign immediately.** At ~$0.10–0.25 per trace × ~30 leads/month, the cost (~$3–7/mo) is rounding error against having owner info ready the moment I sit down at my desk. Use SMS flags (below) to opt out per-lead.
@@ -93,7 +93,7 @@ Standalone commands (no address parsing, just keywords):
 
 | Command | Effect |
 |---------|--------|
-| `done <action> <addr-fragment>` | Mark current action complete, advance campaign. e.g. `done letter 1 4823 32nd` |
+| `done <action> <addr-fragment>` | Mark current action complete, advance campaign. e.g. `done letter 1 1234 Example` |
 | `skip <addr-fragment>` | Run skip trace on a previously `-ns` lead |
 | `start <addr-fragment>` | Start campaign on a previously `-nc` lead |
 | `kill <addr-fragment>` | Mark lead dead, stop all reminders |
@@ -202,7 +202,7 @@ Treat this as a config (YAML or DB rows), not as code-level constants. I want to
 ## Constraints / non-negotiables
 
 - **No SaaS dependency for the core flow.** Twilio + Airtable Free + REISkip pay-per-use are all OK; I own the keys, no vendor can lock me in or jack monthly pricing on me.
-- **TCPA / WA state law:** Tool only messages me. Never a third party. Outbound to leads is always a manual action I take outside this tool.
+- **TCPA / state law:** Tool only messages me. Never a third party. Outbound to leads is always a manual action I take outside this tool.
 - **Single-user for v1.** I'm the only operator.
 - **Simple > clever.** I want this to run for years with minimal maintenance.
 - **Cost ceiling: ~$25/mo total at low volume.** Twilio (~$2) + REISkip (~$5–7) + LLM calls (~$1) + hosting (~$5) + Airtable ($0). Should fit comfortably.
