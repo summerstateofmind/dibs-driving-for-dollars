@@ -54,11 +54,25 @@ def skip_trace(address: str, city: str, state: str, zip_code: str) -> dict | Non
         raw_emails = sorted(person.get("emails") or [], key=lambda e: e.get("rank", 99))
         emails = [e.get("email", "") for e in raw_emails[:2]]
 
+        # Extract mailing address
+        mailing = person.get("mailing_address") or {}
+        mailing_str = ""
+        if mailing.get("street"):
+            parts = [mailing["street"]]
+            if mailing.get("city"):
+                parts.append(mailing["city"])
+            if mailing.get("state"):
+                parts.append(mailing["state"])
+            if mailing.get("zip"):
+                parts.append(mailing["zip"])
+            mailing_str = ", ".join(parts)
+
         return {
             "owner_name": name or "Unknown",
             "phones": phones,
             "emails": emails,
-            "llc_name": None,  # Tracerfy doesn't return LLC in instant lookup
+            "llc_name": None,
+            "mailing_address": mailing_str,
         }
     except Exception:
         log.exception("Skip trace failed for %s, %s %s", address, city, state)

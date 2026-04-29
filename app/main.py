@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timezone
 
 from fastapi import BackgroundTasks, FastAPI, Request
@@ -111,10 +112,15 @@ def handle_capture(parsed: dict):
         if owner_info:
             phones = owner_info.get("phones", [])
             emails = owner_info.get("emails", [])
+            mailing = owner_info.get("mailing_address", "")
+            owner_occupied = check_owner_occupied(address, mailing)
+
             fields = {
                 "Owner Name": owner_info["owner_name"],
                 "LLC Name": owner_info.get("llc_name") or "",
                 "Skip Trace Status": "Complete",
+                "Owner Address": mailing,
+                "Owner Occupied?": owner_occupied,
             }
             for i, p in enumerate(phones[:3], 1):
                 fields[f"Phone {i}"] = p["number"]
@@ -128,12 +134,13 @@ def handle_capture(parsed: dict):
     # Reply
     if owner_info:
         phones = owner_info.get("phones", [])
-        emails = owner_info.get("emails", [])
-        pc, ec = len(phones), len(emails)
+        ph1 = phones[0]["number"] if phones else "none"
+        occ_label = "Owner-occupied" if owner_occupied == "Yes" else "NOT owner-occupied" if owner_occupied == "No" else "Occupancy unknown"
         reply = (
             f"Tracked {address}.\n"
+            f"{occ_label}\n"
             f"Owner: {owner_info['owner_name']}\n"
-            f"{pc} phone{'s' if pc != 1 else ''}, {ec} email{'s' if ec != 1 else ''}\n"
+            f"Ph1: {ph1}\n"
             f"Step: {campaign_step}"
         )
     elif skip_enabled:
@@ -229,6 +236,25 @@ def handle_command(parsed: dict):
 
     else:
         send_sms(f"Unknown command: {cmd}. Text HELP.")
+
+
+def check_owner_occupied(property_address: str, mailing_address: str) -> str:
+    """Compare property address to owner mailing address. Returns Yes/No/Unknown."""
+    if not mailing_address:
+        return "Unknown"
+    # Extract street number from both
+    prop_num = re.match(r"(\d+)", property_address.strip())
+    mail_num = re.match(r"(\d+)", mailing_address.strip())
+    if not prop_num or not mail_num:
+        return "Unknown"
+    if prop_num.group(1) != mail_num.group(1):
+        return "No"
+    # Street numbers match — check street name similarity
+    prop_words = property_address.lower().split()[:4]
+    mail_words = mailing_address.lower().split()[:4]
+    # If first 2-3 words overlap, it's a match
+    overlap = set(prop_words) & set(mail_words)
+    return "Yes" if len(overlap) >= 2 else "No"
 
 
 def handle_list():
