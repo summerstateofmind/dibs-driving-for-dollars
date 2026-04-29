@@ -14,7 +14,7 @@ from app.skip_trace import skip_trace
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-app = FastAPI(title="D4D SMS Tool")
+app = FastAPI(title="Dibs — D4D Lead Capture")
 EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
 
 
@@ -36,8 +36,7 @@ async def handle_sms(request: Request, background_tasks: BackgroundTasks):
         return Response(content=EMPTY_TWIML, media_type="text/xml")
 
     log.info("Received SMS: %s", body)
-    set_reply_channel("sms")
-    background_tasks.add_task(process_sms, body)
+    background_tasks.add_task(process_message, body, "sms")
     return Response(content=EMPTY_TWIML, media_type="text/xml")
 
 
@@ -57,8 +56,7 @@ async def handle_telegram(request: Request, background_tasks: BackgroundTasks):
         return {"ok": True}
 
     log.info("Received Telegram: %s", text)
-    set_reply_channel("telegram", chat_id=chat_id)
-    background_tasks.add_task(process_sms, text)
+    background_tasks.add_task(process_message, text, "telegram", chat_id=chat_id)
     return {"ok": True}
 
 
@@ -70,8 +68,9 @@ def health():
 # --- Processing ---
 
 
-def process_sms(body: str):
-    """Route an inbound SMS to the right handler."""
+def process_message(body: str, channel: str = "sms", **kwargs):
+    """Route an inbound message to the right handler."""
+    set_reply_channel(channel, **kwargs)
     try:
         parsed = parse_sms(body)
         log.info("Parsed: %s", parsed)
@@ -181,7 +180,7 @@ def handle_command(parsed: dict):
 
     if cmd == "help":
         send_reply(
-            "D4D Commands:\n"
+            "Dibs 🚙 Commands:\n"
             "<address> = Log + skip + campaign\n"
             "<address> -ns = No skip trace\n"
             "<address> -nc = No campaign\n"
