@@ -163,6 +163,7 @@ def handle_command(parsed: dict):
             "<address> = Log + skip + campaign\n"
             "<address> -ns = No skip trace\n"
             "<address> -nc = No campaign\n"
+            "done <addr> = Advance campaign step\n"
             "status <addr> = Get lead info\n"
             "note <addr> <text> = Add note\n"
             "kill <addr> = Mark dead\n"
@@ -231,11 +232,44 @@ def handle_command(parsed: dict):
         update_lead(lead["id"], {"Notes": updated})
         send_sms(f"Note added to {addr}.")
 
-    elif cmd in ("done", "skip", "start"):
-        send_sms(f"'{cmd}' coming in Weekend 2.")
+    elif cmd == "done":
+        handle_done(lead)
+
+    elif cmd in ("skip", "start"):
+        send_sms(f"'{cmd}' coming soon.")
 
     else:
         send_sms(f"Unknown command: {cmd}. Text HELP.")
+
+
+CAMPAIGN_SEQUENCE = ["Not Started", "Call / SMS", "Door Knock", "Letter 1", "Email", "Letter 2", "Quarterly Drip"]
+
+
+def handle_done(lead: dict):
+    """Advance a lead to the next campaign step."""
+    fields = lead["fields"]
+    addr = fields.get("Address", "?")
+    current_step = fields.get("Campaign Step", "Not Started")
+
+    try:
+        idx = CAMPAIGN_SEQUENCE.index(current_step)
+    except ValueError:
+        idx = 0
+
+    if idx >= len(CAMPAIGN_SEQUENCE) - 1:
+        send_sms(f"{addr} is already at {current_step}. Campaign complete.")
+        return
+
+    next_step = CAMPAIGN_SEQUENCE[idx + 1]
+    ts = datetime.now(timezone.utc).strftime("%m/%d %I:%M%p")
+    existing_notes = fields.get("Notes", "") or ""
+    updated_notes = f"{existing_notes}\n[{ts}] Completed: {current_step}".strip()
+
+    update_lead(lead["id"], {
+        "Campaign Step": next_step,
+        "Notes": updated_notes,
+    })
+    send_sms(f"{addr}\nDone: {current_step}\nNext: {next_step}")
 
 
 def check_owner_occupied(property_address: str, mailing_address: str) -> str:
