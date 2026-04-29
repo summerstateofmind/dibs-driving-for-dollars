@@ -14,7 +14,7 @@ def _get_table():
     return _table
 
 
-def create_lead(*, address, city, state, zip_code, notes, status, skip_trace_status):
+def create_lead(*, address, city, state, zip_code, notes, status, skip_trace_status, campaign_step="Not Started"):
     """Create a new Lead record in Airtable."""
     return _get_table().create({
         "Address": address,
@@ -24,6 +24,7 @@ def create_lead(*, address, city, state, zip_code, notes, status, skip_trace_sta
         "Condition Notes": notes,
         "Status": status,
         "Skip Trace Status": skip_trace_status,
+        "Campaign Step": campaign_step,
         "Captured At": datetime.now(timezone.utc).isoformat(),
     })
 
@@ -33,6 +34,11 @@ def find_leads_by_address(fragment):
     safe = fragment.replace('"', '\\"')
     formula = f'FIND(LOWER("{safe}"), LOWER({{Address}}))'
     return _get_table().all(formula=formula)
+
+
+def get_all_leads():
+    """Return all lead records."""
+    return _get_table().all()
 
 
 def update_lead(record_id, fields):
