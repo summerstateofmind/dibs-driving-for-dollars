@@ -96,6 +96,7 @@ def test_build_digest_empty_returns_none():
     assert msg is None
 
 
+@patch("app.config.AUTO_EMAIL_ENABLED", True)
 @patch("app.scheduler.update_lead")
 @patch("app.scheduler.send_email")
 @patch("app.scheduler.notify_user")
@@ -113,6 +114,7 @@ def test_process_auto_emails_sends_initial_email(mock_notify, mock_send, mock_up
     assert "Auto-emailed" in mock_notify.call_args[0][0]
 
 
+@patch("app.config.AUTO_EMAIL_ENABLED", True)
 @patch("app.scheduler.notify_user")
 def test_process_auto_emails_missing_email_notifies_user(mock_notify):
     leads = [_make_lead("200 No Email St", "Email", email1="", owner="Bob Jones")]
@@ -123,6 +125,7 @@ def test_process_auto_emails_missing_email_notifies_user(mock_notify):
     assert "manual outreach needed" in mock_notify.call_args[0][0]
 
 
+@patch("app.config.AUTO_EMAIL_ENABLED", True)
 @patch("app.scheduler.update_lead")
 @patch("app.scheduler.send_email", side_effect=Exception("SMTP error"))
 @patch("app.scheduler.notify_user")
