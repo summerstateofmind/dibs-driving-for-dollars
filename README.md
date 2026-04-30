@@ -227,9 +227,9 @@ Then set the ngrok URL as your Twilio webhook.
 | `TRACERFY_API_KEY` | No | Tracerfy API key. Without it, skip trace is disabled. |
 | `TELEGRAM_BOT_TOKEN` | Telegram path | Telegram bot token from BotFather |
 | `TELEGRAM_CHAT_ID` | Telegram path | Your Telegram chat ID |
-| `SENDGRID_API_KEY` | SendGrid path | SendGrid API key (starts with `SG.`) |
-| `SMTP_EMAIL` | Auto-email | Sender email address (Gmail or verified SendGrid sender) |
-| `SMTP_PASSWORD` | SMTP path | Gmail app password (not needed if using SendGrid) |
+| `RESEND_API_KEY` | Resend path | Resend API key (starts with `re_`) |
+| `SMTP_EMAIL` | Auto-email | Sender email address (your verified domain for Resend, or Gmail for SMTP) |
+| `SMTP_PASSWORD` | SMTP path | Gmail app password (not needed if using Resend) |
 | `YOUR_NAME` | Auto-email | Your name for email templates |
 | `AUTO_EMAIL_ENABLED` | No | Set to `true` to enable auto-email. Defaults to `false`. |
 | `DIGEST_HOUR` | No | Hour (0-23) to send daily digest. Default: `8` |
@@ -250,7 +250,7 @@ The scheduler runs inside the app process (APScheduler). Every morning at `DIGES
 Auto-email is **off by default**. To enable:
 
 1. Edit the email templates in `templates/` (see below).
-2. Set up an email backend — SendGrid (for Railway/PaaS) or Gmail SMTP (for VPS). See below.
+2. Set up an email backend — Resend (for Railway/PaaS) or Gmail SMTP (for VPS). See below.
 3. Set `AUTO_EMAIL_ENABLED=true` in your environment (Railway dashboard or `.env`).
 
 ### Email templates
@@ -274,16 +274,16 @@ Available merge fields: `{address}`, `{city}`, `{state}`, `{owner_name}`, `{owne
 
 Edit these templates to match your voice before enabling auto-email. Set `YOUR_NAME` in your environment so `{your_name}` fills in automatically.
 
-### Email backend: SendGrid (Railway / PaaS)
+### Email backend: Resend (Railway / PaaS)
 
-Railway and most PaaS hosts block outbound SMTP. Use SendGrid's API instead (free tier = 100 emails/day):
+Railway and most PaaS hosts block outbound SMTP. Use Resend's API instead (free tier = 100 emails/day):
 
-1. Sign up at [sendgrid.com](https://sendgrid.com).
-2. Authenticate your sending domain (Settings > Sender Authentication).
-3. Create an API key (Settings > API Keys > Full Access).
-4. Set `SENDGRID_API_KEY` and `SMTP_EMAIL` (your verified sender address) in your environment.
+1. Sign up at [resend.com](https://resend.com) (free tier: 3,000 emails/month, no time limit).
+2. Add and verify your domain (Domains > Add Domain — add the DNS records they provide).
+3. Create an API key (API Keys > Create API Key).
+4. Set `RESEND_API_KEY` and `SMTP_EMAIL` (e.g., `hello@yourdomain.com`) in your environment.
 
-When `SENDGRID_API_KEY` is set, emails go through SendGrid's HTTPS API.
+When `RESEND_API_KEY` is set, emails go through Resend's HTTPS API.
 
 ### Email backend: Gmail SMTP (VPS)
 
@@ -293,9 +293,9 @@ If you're hosting on a VPS (DigitalOcean, Linode, Hetzner, etc.) where SMTP isn'
 2. Go to [App Passwords](https://myaccount.google.com/apppasswords).
 3. Create a new app password (select "Mail" and your device).
 4. Copy the 16-character password (e.g., `xxxx xxxx xxxx xxxx`).
-5. Set `SMTP_EMAIL` and `SMTP_PASSWORD` in your environment. Leave `SENDGRID_API_KEY` unset.
+5. Set `SMTP_EMAIL` and `SMTP_PASSWORD` in your environment. Leave `RESEND_API_KEY` unset.
 
-When `SENDGRID_API_KEY` is not set, the app falls back to Gmail SMTP automatically.
+When `RESEND_API_KEY` is not set, the app falls back to Gmail SMTP automatically.
 
 ### Opt-out handling
 
