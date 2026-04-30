@@ -1,5 +1,13 @@
-"""Email sender with template loading and field merging. Uses SendGrid API."""
+"""Email sender with template loading and field merging.
+
+Supports two backends:
+- SendGrid API (set SENDGRID_API_KEY) — required on Railway/PaaS that block SMTP
+- Gmail SMTP (set SMTP_EMAIL + SMTP_PASSWORD) — works on any VPS
+SendGrid is used when SENDGRID_API_KEY is set; otherwise falls back to SMTP.
+"""
 import logging
+import smtplib
+from email.mime.text import MIMEText
 from pathlib import Path
 
 import httpx
@@ -33,8 +41,15 @@ def resolve_owner_name(owner_name: str, llc_name: str) -> str:
 
 
 def send_email(to_email: str, subject: str, body: str):
-    """Send a plain-text email via SendGrid API. Raises on failure."""
+    """Send a plain-text email. Uses SendGrid if configured, otherwise Gmail SMTP."""
     log.info("Sending email to %s: %s", to_email, subject)
+    if config.SENDGRID_API_KEY:
+        _send_via_sendgrid(to_email, subject, body)
+    else:
+        _send_via_smtp(to_email, subject, body)
+
+
+def _send_via_sendgrid(to_email: str, subject: str, body: str):
     resp = httpx.post(
         "https://api.sendgrid.com/v3/mail/send",
         headers={
@@ -50,3 +65,15 @@ def send_email(to_email: str, subject: str, body: str):
         timeout=15,
     )
     resp.raise_for_status()
+
+
+def _send_via_smtp(to_email: str, subject: str, body: str):
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = config.SMTP_EMAIL
+    msg["To"] = to_email
+
+    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        server.starttls()
+        server.login(config.SMTP_EMAIL, config.SMTP_PASSWORD)
+        server.send_message(msg)

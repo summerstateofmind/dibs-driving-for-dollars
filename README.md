@@ -227,8 +227,10 @@ Then set the ngrok URL as your Twilio webhook.
 | `TRACERFY_API_KEY` | No | Tracerfy API key. Without it, skip trace is disabled. |
 | `TELEGRAM_BOT_TOKEN` | Telegram path | Telegram bot token from BotFather |
 | `TELEGRAM_CHAT_ID` | Telegram path | Your Telegram chat ID |
-| `SMTP_EMAIL` | Auto-email | Gmail address to send from |
-| `SMTP_PASSWORD` | Auto-email | Gmail app password (see below) |
+| `SENDGRID_API_KEY` | SendGrid path | SendGrid API key (starts with `SG.`) |
+| `SMTP_EMAIL` | Auto-email | Sender email address (Gmail or verified SendGrid sender) |
+| `SMTP_PASSWORD` | SMTP path | Gmail app password (not needed if using SendGrid) |
+| `YOUR_NAME` | Auto-email | Your name for email templates |
 | `AUTO_EMAIL_ENABLED` | No | Set to `true` to enable auto-email. Defaults to `false`. |
 | `DIGEST_HOUR` | No | Hour (0-23) to send daily digest. Default: `8` |
 | `DIGEST_TIMEZONE` | No | Timezone for digest. Default: `America/Los_Angeles` |
@@ -248,7 +250,7 @@ The scheduler runs inside the app process (APScheduler). Every morning at `DIGES
 Auto-email is **off by default**. To enable:
 
 1. Edit the email templates in `templates/` (see below).
-2. Set up a Gmail app password (see below).
+2. Set up an email backend — SendGrid (for Railway/PaaS) or Gmail SMTP (for VPS). See below.
 3. Set `AUTO_EMAIL_ENABLED=true` in your environment (Railway dashboard or `.env`).
 
 ### Email templates
@@ -263,24 +265,37 @@ Hi {owner_name},
 ...body...
 ```
 
-Available merge fields: `{address}`, `{city}`, `{state}`, `{owner_name}`, `{your_phone}`.
+Available merge fields: `{address}`, `{city}`, `{state}`, `{owner_name}`, `{owner_first_name}`, `{your_name}`, `{your_phone}`.
 
 | Template | When it sends | File |
 |----------|---------------|------|
 | Initial outreach | Email campaign step | `templates/initial_outreach.txt` |
 | Quarterly drip | Quarterly Drip step (90+ days since last email) | `templates/quarterly_drip.txt` |
 
-Edit these templates to match your voice and business name before enabling auto-email. Replace `[YOUR NAME]` and `[YOUR COMPANY]` with your actual info.
+Edit these templates to match your voice before enabling auto-email. Set `YOUR_NAME` in your environment so `{your_name}` fills in automatically.
 
-### Gmail app password
+### Email backend: SendGrid (Railway / PaaS)
 
-Google requires an **app password** (not your regular password) for SMTP:
+Railway and most PaaS hosts block outbound SMTP. Use SendGrid's API instead (free tier = 100 emails/day):
+
+1. Sign up at [sendgrid.com](https://sendgrid.com).
+2. Authenticate your sending domain (Settings > Sender Authentication).
+3. Create an API key (Settings > API Keys > Full Access).
+4. Set `SENDGRID_API_KEY` and `SMTP_EMAIL` (your verified sender address) in your environment.
+
+When `SENDGRID_API_KEY` is set, emails go through SendGrid's HTTPS API.
+
+### Email backend: Gmail SMTP (VPS)
+
+If you're hosting on a VPS (DigitalOcean, Linode, Hetzner, etc.) where SMTP isn't blocked, you can send directly through Gmail with no third-party service:
 
 1. Enable 2-Step Verification on your Google account.
 2. Go to [App Passwords](https://myaccount.google.com/apppasswords).
 3. Create a new app password (select "Mail" and your device).
 4. Copy the 16-character password (e.g., `xxxx xxxx xxxx xxxx`).
-5. Set `SMTP_EMAIL` and `SMTP_PASSWORD` in your environment.
+5. Set `SMTP_EMAIL` and `SMTP_PASSWORD` in your environment. Leave `SENDGRID_API_KEY` unset.
+
+When `SENDGRID_API_KEY` is not set, the app falls back to Gmail SMTP automatically.
 
 ### Opt-out handling
 
