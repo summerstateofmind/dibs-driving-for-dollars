@@ -96,7 +96,7 @@ For leads where Campaign Step = "Email":
 2. Check `Email Opt Out` is not checked
 3. Check lead has at least one email address (Email 1 field)
 4. Send initial outreach email via Gmail SMTP
-5. Update Airtable: increment `Emails Sent`, set `Last Email Sent At`, advance Campaign Step to "Letter 2", set `Step Completed At`, append to Notes
+5. Update Airtable directly (NOT via `handle_done` — this is the scheduler's own code path): increment `Emails Sent`, set `Last Email Sent At`, advance Campaign Step to "Letter 2", set `Step Completed At`, append to Notes
 6. Text user: "Auto-emailed Jane Smith (1234 Example St) — step advanced to Letter 2"
 
 If no email address on the lead:
