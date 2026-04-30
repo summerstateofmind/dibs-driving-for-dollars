@@ -1,5 +1,6 @@
 """Daily digest and auto-email scheduler."""
 import logging
+import time
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 
@@ -100,6 +101,7 @@ def process_auto_emails(leads: list[dict]):
                 advance_to="Letter 2",
                 notification=f"Auto-emailed {owner_name} ({addr}) — step advanced to Letter 2",
             )
+            time.sleep(7)
 
         elif step == "Quarterly Drip":
             if opt_out or not email_addr:
@@ -116,6 +118,7 @@ def process_auto_emails(leads: list[dict]):
                 advance_to=None,
                 notification=f"Drip email sent to {owner_name} ({addr})",
             )
+            time.sleep(7)
 
 
 def _send_template_email(lead, template_name, email_addr, owner_name, addr, fields,
