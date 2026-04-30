@@ -76,6 +76,8 @@ def build_digest(leads: list[dict]) -> str | None:
 
 def process_auto_emails(leads: list[dict]):
     """Send auto-emails for leads at the Email or Quarterly Drip step."""
+    if not config.AUTO_EMAIL_ENABLED:
+        return
     now = datetime.now(timezone.utc)
 
     for lead in leads:
