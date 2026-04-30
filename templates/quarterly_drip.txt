@@ -1,0 +1,12 @@
+Subject: Still interested in {address}
+
+Hi {owner_name},
+
+I reached out a while back about your property at {address}. Just wanted to check in — if you're considering selling, my offer still stands.
+
+Call or text anytime: {your_phone}.
+
+If you'd rather not hear from me, just reply "stop" and I won't reach out again.
+
+Best,
+Skyler
