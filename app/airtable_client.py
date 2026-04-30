@@ -41,6 +41,11 @@ def get_all_leads():
     return _get_table().all()
 
 
+def get_campaigning_leads():
+    """Return leads where Status = Campaigning (filtered server-side to save API calls)."""
+    return _get_table().all(formula="{Status} = 'Campaigning'")
+
+
 def update_lead(record_id, fields):
     """Update fields on an existing Lead record."""
     return _get_table().update(record_id, fields)
