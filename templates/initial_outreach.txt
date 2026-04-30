@@ -1,14 +1,14 @@
 Subject: Your property at {address}
 
-Hi {owner_name},
+Hi {owner_first_name},
 
-My name is [YOUR NAME] with [YOUR COMPANY]. I'm reaching out about your property at {address}, {city}, {state}.
+My name is {your_name}. I'm reaching out about your property at {address}; I live in the area and would be interested in buying it.
 
 If you've ever considered selling, I'd love to have a quick conversation. I buy properties in any condition and can close on your timeline.
 
 Feel free to call or text me at {your_phone}.
 
-If you'd rather not hear from me, just reply "stop" and I won't reach out again.
+If you'd rather not hear from me, just let me know and I won't reach out again.
 
 Best,
-[YOUR NAME]
+{your_name}

@@ -19,3 +19,4 @@ DIGEST_HOUR = int(os.getenv("DIGEST_HOUR", "8"))
 DIGEST_TIMEZONE = os.getenv("DIGEST_TIMEZONE", "America/Los_Angeles")
 CRON_SECRET = os.getenv("CRON_SECRET", "")
 AUTO_EMAIL_ENABLED = os.getenv("AUTO_EMAIL_ENABLED", "false").lower() == "true"
+YOUR_NAME = os.getenv("YOUR_NAME", "")
