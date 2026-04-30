@@ -126,10 +126,12 @@ def _send_template_email(lead, template_name, email_addr, owner_name, addr, fiel
         subject_tpl, body_tpl = load_template(template_name)
         merge = {
             "owner_name": owner_name,
+            "owner_first_name": owner_name.split()[0] if owner_name else "there",
             "address": addr,
             "city": fields.get("City", ""),
             "state": fields.get("State", ""),
             "your_phone": config.MY_PHONE_NUMBER,
+            "your_name": config.YOUR_NAME,
         }
         subject = merge_fields(subject_tpl, merge)
         body = merge_fields(body_tpl, merge)
