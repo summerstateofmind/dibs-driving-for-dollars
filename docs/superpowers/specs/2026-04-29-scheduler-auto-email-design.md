@@ -138,7 +138,7 @@ Subject: Your property at {address}
 
 Hi {owner_name},
 
-My name is Skyler with Three Willows Capital. I'm reaching out about your property at {address}, {city}, {state}.
+My name is [YOUR NAME] with [YOUR COMPANY]. I'm reaching out about your property at {address}, {city}, {state}.
 
 If you've ever considered selling, I'd love to have a quick conversation. I buy properties in any condition and can close on your timeline.
 
@@ -147,7 +147,7 @@ Feel free to call or text me at {your_phone}.
 If you'd rather not hear from me, just reply "stop" and I won't reach out again.
 
 Best,
-Skyler
+[YOUR NAME]
 ```
 
 **`templates/quarterly_drip.txt`:**
@@ -163,7 +163,7 @@ Call or text anytime: {your_phone}.
 If you'd rather not hear from me, just reply "stop" and I won't reach out again.
 
 Best,
-Skyler
+[YOUR NAME]
 ```
 
 **Merge fields** (pulled from Airtable):

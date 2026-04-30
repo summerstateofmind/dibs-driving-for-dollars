@@ -1,7 +1,7 @@
 # D4D SMS Tool — Driving for Dollars
 
 ## Project overview
-Personal SMS-driven tool for capturing real estate leads while walking/driving neighborhoods. Text an address to a Twilio number → AI parses it → skip traces the owner → starts an outreach campaign → reminders via SMS. Desktop view via Airtable (read-mostly). Single-user tool for Skyler (Trillium Partners / Three Willows Capital).
+Personal SMS-driven tool for capturing real estate leads while walking/driving neighborhoods. Text an address to a Twilio number → AI parses it → skip traces the owner → starts an outreach campaign → reminders via SMS. Desktop view via Airtable (read-mostly). Single-user tool, built for a solo real estate investor.
 
 ## Architecture
 - **Backend:** FastAPI (Python), stateless — deployed on VPS or Lambda (TBD)
