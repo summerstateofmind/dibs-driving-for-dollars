@@ -1,4 +1,4 @@
-"""Tests for emailer — template loading, field merging, owner name fallback."""
+"""Tests for emailer — template loading, field merging, owner name fallback, send backends."""
 import os
 import pytest
 from unittest.mock import patch, MagicMock
@@ -49,7 +49,7 @@ def test_resolve_owner_name_falls_back_to_default():
 
 
 @patch("app.emailer.httpx.post")
-def test_send_email_calls_sendgrid(mock_post):
+def test_send_email_uses_sendgrid_when_key_set(mock_post):
     mock_post.return_value = MagicMock(status_code=202)
 
     from app.emailer import send_email
@@ -61,8 +61,22 @@ def test_send_email_calls_sendgrid(mock_post):
     assert call_kwargs.kwargs["json"]["personalizations"][0]["to"][0]["email"] == "owner@example.com"
 
 
+@patch("app.emailer.smtplib.SMTP")
+def test_send_email_uses_smtp_when_no_sendgrid_key(mock_smtp_class):
+    mock_smtp = MagicMock()
+    mock_smtp_class.return_value.__enter__ = MagicMock(return_value=mock_smtp)
+    mock_smtp_class.return_value.__exit__ = MagicMock(return_value=False)
+
+    from app.emailer import send_email
+    with patch("app.config.SMTP_EMAIL", "test@gmail.com"), \
+         patch("app.config.SMTP_PASSWORD", "pass"), \
+         patch("app.config.SENDGRID_API_KEY", ""):
+        send_email("owner@example.com", "Test Subject", "Test body")
+    mock_smtp.send_message.assert_called_once()
+
+
 @patch("app.emailer.httpx.post")
-def test_send_email_raises_on_failure(mock_post):
+def test_send_email_raises_on_sendgrid_failure(mock_post):
     mock_response = MagicMock()
     mock_response.raise_for_status.side_effect = Exception("SendGrid error")
     mock_post.return_value = mock_response
