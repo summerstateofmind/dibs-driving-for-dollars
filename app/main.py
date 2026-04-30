@@ -9,6 +9,7 @@ from app import config
 from app.airtable_client import create_lead, find_leads_by_address, update_lead, get_all_leads
 from app.parser import parse_sms
 from app.reply import send_reply, set_reply_channel
+from app.scheduler import start_scheduler, run_daily_job
 from app.skip_trace import skip_trace
 
 logging.basicConfig(level=logging.INFO)
@@ -16,6 +17,11 @@ log = logging.getLogger(__name__)
 
 app = FastAPI(title="Dibs — D4D Lead Capture")
 EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+
+
+@app.on_event("startup")
+def on_startup():
+    start_scheduler()
 
 
 # --- Webhook endpoint ---
@@ -63,6 +69,15 @@ async def handle_telegram(request: Request, background_tasks: BackgroundTasks):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/cron/daily")
+def cron_daily(secret: str = ""):
+    """Manual trigger for the daily digest job. Protected by CRON_SECRET."""
+    if not config.CRON_SECRET or secret != config.CRON_SECRET:
+        return Response(status_code=403, content="Forbidden")
+    run_daily_job()
+    return {"status": "ok", "message": "Daily job triggered"}
 
 
 # --- Processing ---
