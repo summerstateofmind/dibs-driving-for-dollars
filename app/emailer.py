@@ -40,6 +40,7 @@ def send_email(to_email: str, subject: str, body: str):
     msg["To"] = to_email
 
     log.info("Sending email to %s: %s", to_email, subject)
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        server.starttls()
         server.login(config.SMTP_EMAIL, config.SMTP_PASSWORD)
         server.send_message(msg)
