@@ -116,13 +116,13 @@ def test_process_auto_emails_sends_initial_email(mock_notify, mock_send, mock_up
 
 @patch("app.config.AUTO_EMAIL_ENABLED", True)
 @patch("app.scheduler.notify_user")
-def test_process_auto_emails_missing_email_notifies_user(mock_notify):
+@patch("app.scheduler.send_email")
+def test_process_auto_emails_missing_email_skips_silently(mock_send, mock_notify):
     leads = [_make_lead("200 No Email St", "Email", email1="", owner="Bob Jones")]
     from app.scheduler import process_auto_emails
     process_auto_emails(leads)
-    mock_notify.assert_called_once()
-    assert "No email for" in mock_notify.call_args[0][0]
-    assert "manual outreach needed" in mock_notify.call_args[0][0]
+    mock_send.assert_not_called()
+    mock_notify.assert_not_called()
 
 
 @patch("app.config.AUTO_EMAIL_ENABLED", True)

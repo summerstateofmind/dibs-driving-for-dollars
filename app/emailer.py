@@ -1,8 +1,8 @@
-"""Gmail SMTP email sender with template loading and field merging."""
+"""Email sender with template loading and field merging. Uses SendGrid API."""
 import logging
-import smtplib
-from email.mime.text import MIMEText
 from pathlib import Path
+
+import httpx
 
 from app import config
 
@@ -33,14 +33,20 @@ def resolve_owner_name(owner_name: str, llc_name: str) -> str:
 
 
 def send_email(to_email: str, subject: str, body: str):
-    """Send a plain-text email via Gmail SMTP. Raises on failure."""
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = config.SMTP_EMAIL
-    msg["To"] = to_email
-
+    """Send a plain-text email via SendGrid API. Raises on failure."""
     log.info("Sending email to %s: %s", to_email, subject)
-    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-        server.starttls()
-        server.login(config.SMTP_EMAIL, config.SMTP_PASSWORD)
-        server.send_message(msg)
+    resp = httpx.post(
+        "https://api.sendgrid.com/v3/mail/send",
+        headers={
+            "Authorization": f"Bearer {config.SENDGRID_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "personalizations": [{"to": [{"email": to_email}]}],
+            "from": {"email": config.SMTP_EMAIL},
+            "subject": subject,
+            "content": [{"type": "text/plain", "value": body}],
+        },
+        timeout=15,
+    )
+    resp.raise_for_status()
