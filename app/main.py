@@ -288,6 +288,7 @@ def handle_done(lead: dict):
 
     update_lead(lead["id"], {
         "Campaign Step": next_step,
+        "Step Completed At": datetime.now(timezone.utc).isoformat(),
         "Notes": updated_notes,
     })
     send_reply(f"{addr}\nDone: {current_step}\nNext: {next_step}")
