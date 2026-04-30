@@ -60,6 +60,8 @@ All processing is stateless. Airtable is the database. SMS (or Telegram) is the 
 - **AI parsing** -- natural language input, no rigid format required
 - **Auto skip trace** -- owner lookup fires on capture by default (opt out with `-ns`)
 - **Owner-occupied detection** -- compares property address to owner mailing address
+- **Daily digest** -- morning notification listing leads that need action today
+- **Auto-email** -- sends templated emails to owners at the Email and Quarterly Drip campaign steps
 - **Campaign tracking** -- multi-step outreach cadence per lead
 - **Duplicate detection** -- won't re-add an address you're already tracking
 - **Fuzzy address matching** -- commands work with partial addresses ("4823 32nd")
@@ -138,6 +140,10 @@ Create a base with a table called **Leads** and these fields:
 | Phone Type 1 / Phone Type 2 / Phone Type 3 | Single line text |
 | Email 1 / Email 2 | Single line text |
 | Captured At | Single line text |
+| Step Completed At | Single line text |
+| Emails Sent | Number |
+| Last Email Sent At | Single line text |
+| Email Opt Out | Checkbox |
 
 Then generate a [Personal Access Token](https://airtable.com/create/tokens) with read/write access to your base. Grab the Base ID from the Airtable URL (`https://airtable.com/appXXXXXXXX/...`).
 
@@ -221,6 +227,72 @@ Then set the ngrok URL as your Twilio webhook.
 | `TRACERFY_API_KEY` | No | Tracerfy API key. Without it, skip trace is disabled. |
 | `TELEGRAM_BOT_TOKEN` | Telegram path | Telegram bot token from BotFather |
 | `TELEGRAM_CHAT_ID` | Telegram path | Your Telegram chat ID |
+| `SMTP_EMAIL` | Auto-email | Gmail address to send from |
+| `SMTP_PASSWORD` | Auto-email | Gmail app password (see below) |
+| `AUTO_EMAIL_ENABLED` | No | Set to `true` to enable auto-email. Defaults to `false`. |
+| `DIGEST_HOUR` | No | Hour (0-23) to send daily digest. Default: `8` |
+| `DIGEST_TIMEZONE` | No | Timezone for digest. Default: `America/Los_Angeles` |
+| `CRON_SECRET` | No | Secret for manual `/cron/daily?secret=...` trigger |
+
+---
+
+## Daily Digest & Auto-Email
+
+The scheduler runs inside the app process (APScheduler). Every morning at `DIGEST_HOUR` (default 8am Pacific), it:
+
+1. **Sends you a digest** -- lists leads that need manual action today (calls, door knocks, letters coming due). Delivered via Telegram if configured, otherwise SMS.
+2. **Auto-sends emails** -- for leads on the Email or Quarterly Drip step, sends a templated email to the owner and advances the campaign. Only runs when `AUTO_EMAIL_ENABLED=true`.
+
+### Enabling auto-email
+
+Auto-email is **off by default**. To enable:
+
+1. Edit the email templates in `templates/` (see below).
+2. Set up a Gmail app password (see below).
+3. Set `AUTO_EMAIL_ENABLED=true` in your environment (Railway dashboard or `.env`).
+
+### Email templates
+
+Templates live in `templates/`. Each file has a `Subject:` line followed by the body:
+
+```
+Subject: Your property at {address}
+
+Hi {owner_name},
+
+...body...
+```
+
+Available merge fields: `{address}`, `{city}`, `{state}`, `{owner_name}`, `{your_phone}`.
+
+| Template | When it sends | File |
+|----------|---------------|------|
+| Initial outreach | Email campaign step | `templates/initial_outreach.txt` |
+| Quarterly drip | Quarterly Drip step (90+ days since last email) | `templates/quarterly_drip.txt` |
+
+Edit these templates to match your voice and business name before enabling auto-email. Replace `[YOUR NAME]` and `[YOUR COMPANY]` with your actual info.
+
+### Gmail app password
+
+Google requires an **app password** (not your regular password) for SMTP:
+
+1. Enable 2-Step Verification on your Google account.
+2. Go to [App Passwords](https://myaccount.google.com/apppasswords).
+3. Create a new app password (select "Mail" and your device).
+4. Copy the 16-character password (e.g., `xxxx xxxx xxxx xxxx`).
+5. Set `SMTP_EMAIL` and `SMTP_PASSWORD` in your environment.
+
+### Opt-out handling
+
+Each email includes "reply stop" language. If an owner replies stop, check the **Email Opt Out** checkbox in Airtable -- the scheduler will skip them going forward.
+
+### Manual trigger
+
+You can trigger the daily job on demand:
+
+```
+GET /cron/daily?secret=YOUR_CRON_SECRET
+```
 
 ---
 
@@ -293,10 +365,20 @@ d4d-app/
     reply.py           # Channel-aware reply routing (SMS or Telegram)
     airtable_client.py # Airtable read/write operations
     skip_trace.py      # Tracerfy skip trace integration
+    scheduler.py       # Daily digest + auto-email orchestration
+    emailer.py         # Gmail SMTP sender + template engine
     config.py          # Environment variable loading
+  templates/
+    initial_outreach.txt   # Email template for Email campaign step
+    quarterly_drip.txt     # Email template for Quarterly Drip step
+  tests/
+    test_scheduler.py
+    test_emailer.py
+    test_airtable_filter.py
   docs/
     ios-shortcut-setup.md
-  Procfile             # Railway/Heroku deploy command
+  .env.example           # Template for environment variables
+  Procfile               # Railway/Heroku deploy command
   requirements.txt
 ```
 

@@ -161,7 +161,7 @@ Subject: Your property at {address}
 
 Hi {owner_name},
 
-My name is Skyler with Three Willows Capital. I'm reaching out about your property at {address}, {city}, {state}.
+My name is [YOUR NAME] with [YOUR COMPANY]. I'm reaching out about your property at {address}, {city}, {state}.
 
 If you've ever considered selling, I'd love to have a quick conversation. I buy properties in any condition and can close on your timeline.
 
@@ -170,7 +170,7 @@ Feel free to call or text me at {your_phone}.
 If you'd rather not hear from me, just reply "stop" and I won't reach out again.
 
 Best,
-Skyler
+[YOUR NAME]
 ```
 
 - [ ] **Step 2: Create `templates/quarterly_drip.txt`**
@@ -187,7 +187,7 @@ Call or text anytime: {your_phone}.
 If you'd rather not hear from me, just reply "stop" and I won't reach out again.
 
 Best,
-Skyler
+[YOUR NAME]
 ```
 
 - [ ] **Step 3: Commit**
@@ -815,7 +815,7 @@ git commit -m "feat: wire scheduler into FastAPI startup, add /cron/daily endpoi
 
 ```bash
 CRON_SECRET=$(python -c "import secrets; print(secrets.token_urlsafe(24))")
-railway variables set CRON_SECRET=$CRON_SECRET SMTP_EMAIL=bissell.skyler@gmail.com SMTP_PASSWORD="qqfp gltp blrh swun" DIGEST_HOUR=8 DIGEST_TIMEZONE=America/Los_Angeles
+railway variables set CRON_SECRET=$CRON_SECRET SMTP_EMAIL=your.email@gmail.com SMTP_PASSWORD="xxxx xxxx xxxx xxxx" DIGEST_HOUR=8 DIGEST_TIMEZONE=America/Los_Angeles
 ```
 
 - [ ] **Step 2: Deploy to Railway**
