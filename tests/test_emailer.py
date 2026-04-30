@@ -49,20 +49,21 @@ def test_resolve_owner_name_falls_back_to_default():
 
 
 @patch("app.emailer.httpx.post")
-def test_send_email_uses_sendgrid_when_key_set(mock_post):
-    mock_post.return_value = MagicMock(status_code=202)
+def test_send_email_uses_resend_when_key_set(mock_post):
+    mock_post.return_value = MagicMock(status_code=200)
 
     from app.emailer import send_email
-    with patch("app.config.SMTP_EMAIL", "test@gmail.com"), \
-         patch("app.config.SENDGRID_API_KEY", "SG.test"):
+    with patch("app.config.SMTP_EMAIL", "test@example.com"), \
+         patch("app.config.RESEND_API_KEY", "re_test"):
         send_email("owner@example.com", "Test Subject", "Test body")
     mock_post.assert_called_once()
     call_kwargs = mock_post.call_args
-    assert call_kwargs.kwargs["json"]["personalizations"][0]["to"][0]["email"] == "owner@example.com"
+    assert call_kwargs.kwargs["json"]["to"] == ["owner@example.com"]
+    assert call_kwargs.kwargs["json"]["text"] == "Test body"
 
 
 @patch("app.emailer.smtplib.SMTP")
-def test_send_email_uses_smtp_when_no_sendgrid_key(mock_smtp_class):
+def test_send_email_uses_smtp_when_no_resend_key(mock_smtp_class):
     mock_smtp = MagicMock()
     mock_smtp_class.return_value.__enter__ = MagicMock(return_value=mock_smtp)
     mock_smtp_class.return_value.__exit__ = MagicMock(return_value=False)
@@ -70,19 +71,19 @@ def test_send_email_uses_smtp_when_no_sendgrid_key(mock_smtp_class):
     from app.emailer import send_email
     with patch("app.config.SMTP_EMAIL", "test@gmail.com"), \
          patch("app.config.SMTP_PASSWORD", "pass"), \
-         patch("app.config.SENDGRID_API_KEY", ""):
+         patch("app.config.RESEND_API_KEY", ""):
         send_email("owner@example.com", "Test Subject", "Test body")
     mock_smtp.send_message.assert_called_once()
 
 
 @patch("app.emailer.httpx.post")
-def test_send_email_raises_on_sendgrid_failure(mock_post):
+def test_send_email_raises_on_resend_failure(mock_post):
     mock_response = MagicMock()
-    mock_response.raise_for_status.side_effect = Exception("SendGrid error")
+    mock_response.raise_for_status.side_effect = Exception("Resend error")
     mock_post.return_value = mock_response
 
     from app.emailer import send_email
-    with patch("app.config.SMTP_EMAIL", "test@gmail.com"), \
-         patch("app.config.SENDGRID_API_KEY", "SG.test"):
-        with pytest.raises(Exception, match="SendGrid error"):
+    with patch("app.config.SMTP_EMAIL", "test@example.com"), \
+         patch("app.config.RESEND_API_KEY", "re_test"):
+        with pytest.raises(Exception, match="Resend error"):
             send_email("owner@example.com", "Test Subject", "Test body")

@@ -1,9 +1,9 @@
 """Email sender with template loading and field merging.
 
 Supports two backends:
-- SendGrid API (set SENDGRID_API_KEY) — required on Railway/PaaS that block SMTP
+- Resend API (set RESEND_API_KEY) — required on Railway/PaaS that block SMTP
 - Gmail SMTP (set SMTP_EMAIL + SMTP_PASSWORD) — works on any VPS
-SendGrid is used when SENDGRID_API_KEY is set; otherwise falls back to SMTP.
+Resend is used when RESEND_API_KEY is set; otherwise falls back to SMTP.
 """
 import logging
 import smtplib
@@ -41,26 +41,26 @@ def resolve_owner_name(owner_name: str, llc_name: str) -> str:
 
 
 def send_email(to_email: str, subject: str, body: str):
-    """Send a plain-text email. Uses SendGrid if configured, otherwise Gmail SMTP."""
+    """Send a plain-text email. Uses Resend if configured, otherwise Gmail SMTP."""
     log.info("Sending email to %s: %s", to_email, subject)
-    if config.SENDGRID_API_KEY:
-        _send_via_sendgrid(to_email, subject, body)
+    if config.RESEND_API_KEY:
+        _send_via_resend(to_email, subject, body)
     else:
         _send_via_smtp(to_email, subject, body)
 
 
-def _send_via_sendgrid(to_email: str, subject: str, body: str):
+def _send_via_resend(to_email: str, subject: str, body: str):
     resp = httpx.post(
-        "https://api.sendgrid.com/v3/mail/send",
+        "https://api.resend.com/emails",
         headers={
-            "Authorization": f"Bearer {config.SENDGRID_API_KEY}",
+            "Authorization": f"Bearer {config.RESEND_API_KEY}",
             "Content-Type": "application/json",
         },
         json={
-            "personalizations": [{"to": [{"email": to_email}]}],
-            "from": {"email": config.SMTP_EMAIL},
+            "from": config.SMTP_EMAIL,
+            "to": [to_email],
             "subject": subject,
-            "content": [{"type": "text/plain", "value": body}],
+            "text": body,
         },
         timeout=15,
     )
