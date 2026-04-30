@@ -21,7 +21,7 @@ Both run from a single APScheduler job inside the existing FastAPI app.
 
 ## Airtable Schema Changes
 
-Three new fields on the Leads table:
+Four new fields on the Leads table:
 
 | Field | Type | Purpose |
 |-------|------|---------|
@@ -77,10 +77,11 @@ Total active: 12 leads
 
 - Phone number included inline for Call / SMS step only (Phone 1 field)
 - Owner name in parentheses for all steps
+- "Total active" = count of all leads with Status = "Campaigning" (the same filtered fetch)
 - If nothing is due, no message sent (don't spam)
 
 ### Delivery
-Uses `send_reply` with a default channel. If `TELEGRAM_CHAT_ID` is set, sends via Telegram. Otherwise falls back to SMS.
+The scheduler runs in its own thread with no inbound message context, so it cannot use `send_reply` (which depends on thread-local state). Instead, `app/scheduler.py` defines a `notify_user(body)` helper that picks the channel directly: if `TELEGRAM_CHAT_ID` is set, sends via `send_telegram`; otherwise sends via `send_sms`. All scheduler notifications use this helper.
 
 ---
 
@@ -104,7 +105,7 @@ If no email address on the lead:
 
 ### Quarterly Drip Logic
 For leads where Campaign Step = "Quarterly Drip":
-1. Check 90+ days since `Last Email Sent At`
+1. Check 90+ days since `Last Email Sent At`. If `Last Email Sent At` is empty (lead was manually advanced to Quarterly Drip without a prior auto-email), use `Step Completed At` as the anchor instead.
 2. Check `Email Opt Out` is not checked
 3. Check lead has at least one email address
 4. Send quarterly drip email via Gmail SMTP
@@ -112,6 +113,12 @@ For leads where Campaign Step = "Quarterly Drip":
 6. Text user: "Drip email sent to Jane Smith (1234 Example St)"
 
 Lead stays in Quarterly Drip step indefinitely until manually killed.
+
+### SMTP Error Handling
+If an email fails to send (network error, bad credentials, Gmail rate limit):
+- Do NOT advance the campaign step or update email fields — the lead retries on the next daily run
+- Text user: "Email failed for 1234 Example St — will retry tomorrow. Check SMTP credentials if this persists."
+- Log the full error for debugging
 
 ### Email Provider
 Gmail SMTP with app password. Emails come from the user's real Gmail address.
@@ -160,7 +167,7 @@ Skyler
 ```
 
 **Merge fields** (pulled from Airtable):
-- `{owner_name}` — Owner Name
+- `{owner_name}` — Owner Name. Fallback: if empty, use LLC Name. If both empty, use "Property Owner".
 - `{address}` — Address
 - `{city}` — City
 - `{state}` — State
@@ -181,16 +188,17 @@ Skyler
 
 | File | Change |
 |------|--------|
-| `app/main.py` | Start scheduler on app startup, add `GET /cron/daily` fallback endpoint |
-| `app/config.py` | Add `SMTP_EMAIL`, `SMTP_PASSWORD`, `DIGEST_HOUR`, `DIGEST_TIMEZONE` |
+| `app/main.py` | Start scheduler on app startup, add `GET /cron/daily` fallback endpoint. Update `handle_done` to write `Step Completed At` on every step advance. |
+| `app/airtable_client.py` | Add `get_campaigning_leads()` — filtered fetch using Airtable formula `{Status} = 'Campaigning'` to avoid wasting API calls. |
+| `app/config.py` | Add `SMTP_EMAIL`, `SMTP_PASSWORD`, `DIGEST_HOUR`, `DIGEST_TIMEZONE`, `CRON_SECRET` |
 | `requirements.txt` | Add `apscheduler` |
-| `.env.example` | Add SMTP and digest config placeholders |
+| `.env.example` | Add SMTP, digest config, and cron secret placeholders |
 
 ---
 
 ## Fallback Endpoint
 
-`GET /cron/daily` — triggers the daily digest + auto-email job manually. Useful for testing and as a backup if the scheduler misses a run.
+`GET /cron/daily?secret=<CRON_SECRET>` — triggers the daily digest + auto-email job manually. Protected by a secret query parameter (`CRON_SECRET` env var). Returns 403 if the secret is missing or wrong. Useful for testing and as a backup if the scheduler misses a run.
 
 ---
 
@@ -201,7 +209,8 @@ Skyler
 | `SMTP_EMAIL` | (required for auto-email) | Gmail address to send from |
 | `SMTP_PASSWORD` | (required for auto-email) | Gmail app password |
 | `DIGEST_HOUR` | 8 | Hour to send daily digest (24hr) |
-| `DIGEST_TIMEZONE` | America/Los_Angeles | Timezone for digest schedule |
+| `DIGEST_TIMEZONE` | America/Los_Angeles | Timezone for digest schedule (uses Python 3.12+ `zoneinfo`, no extra dependency) |
+| `CRON_SECRET` | (required) | Secret token for the `/cron/daily` fallback endpoint |
 
 ---
 
