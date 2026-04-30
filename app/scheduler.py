@@ -93,7 +93,7 @@ def process_auto_emails(leads: list[dict]):
             if opt_out:
                 continue
             if not email_addr:
-                notify_user(f"No email for {addr} — skipping auto-email, manual outreach needed")
+                log.info("No email on file for %s — skipping", addr)
                 continue
 
             _send_template_email(
