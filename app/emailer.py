@@ -58,6 +58,7 @@ def _send_via_resend(to_email: str, subject: str, body: str):
         },
         json={
             "from": config.SMTP_EMAIL,
+            "reply_to": config.REPLY_TO_EMAIL or config.SMTP_EMAIL,
             "to": [to_email],
             "subject": subject,
             "text": body,
