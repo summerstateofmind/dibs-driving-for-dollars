@@ -1,4 +1,4 @@
-# Driving/Walking for Dollars SMS Tool — Planning Brief
+# Dibs — Driving for Dollars Planning Brief
 
 > **How to use this doc:** I'm handing this to you (Claude) in a fresh session to help me design and build a personal tool. Read the whole thing first. At the end I list open decisions — please walk me through those before we start building. I'd rather decide architecture deliberately than dive into code.
 

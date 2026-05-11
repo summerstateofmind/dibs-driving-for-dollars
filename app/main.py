@@ -15,7 +15,7 @@ from app.skip_trace import skip_trace
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-app = FastAPI(title="Dibs — D4D Lead Capture")
+app = FastAPI(title="Dibs — Driving for Dollars")
 EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
 
 
@@ -214,7 +214,7 @@ def handle_command(parsed: dict):
 
     fragment = parsed.get("address_fragment", "")
     if not fragment:
-        send_reply(f"Need an address. E.g.: {cmd} 4823 32nd")
+        send_reply(f"Need an address. E.g.: {cmd} 1234 Main")
         return
 
     leads = find_leads_by_address(fragment)
