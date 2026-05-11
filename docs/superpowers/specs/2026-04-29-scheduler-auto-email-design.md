@@ -218,6 +218,6 @@ Best,
 
 - Web dashboard or UI beyond Airtable
 - AI-generated email copy (templates only)
-- Data enrichment (public records, tax liens, comps) — future work, likely in FlaggedLeads
+- Data enrichment (public records, tax liens, comps) — future work, out of scope here
 - Multi-user support
 - Batch capture or MMS photo support

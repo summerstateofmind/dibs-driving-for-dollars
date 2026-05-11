@@ -6,7 +6,7 @@ One-tap or "Hey Siri, log this house" capture while driving/walking.
 
 1. Grabs your current GPS location
 2. Reverse geocodes to a street address
-3. Opens a pre-filled text to your D4D number
+3. Opens a pre-filled text to your Dibs number (Telegram bot or Twilio number)
 4. You add condition notes (optional) and hit send
 
 ## Setup (takes 2 minutes)
@@ -24,7 +24,7 @@ One-tap or "Hey Siri, log this house" capture while driving/walking.
 **Action 2: Get Details of Location**
 - Search "Get Details" → add "Get Details of Location"
 - Get: **Street** from Current Location
-- (This gives you just the street address like "4823 32nd Ave NE")
+- (This gives you just the street address like "1234 Main St")
 
 **Action 3: Get Details of Location** (again, for city)
 - Add another "Get Details of Location"
@@ -36,7 +36,7 @@ One-tap or "Hey Siri, log this house" capture while driving/walking.
 
 **Action 5: Send Message**
 - Search "Send Message" → add it
-- To: **(833) 853-8107**
+- To: **&lt;your Twilio number or Telegram bot username&gt;**
 - Message: tap the Text variable from step 4
 - Toggle OFF "Show When Run" if you want it fully automatic (no preview)
   - Or leave ON if you want to add notes before sending

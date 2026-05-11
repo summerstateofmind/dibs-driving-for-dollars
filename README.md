@@ -1,19 +1,19 @@
-# D4D SMS Tool
+# Dibs — Driving for Dollars
 
-Personal SMS-driven lead capture for real estate investors doing Driving for Dollars.
+Personal text-driven lead capture for real estate investors doing Driving for Dollars. Spot a house, text it to a bot, get the owner back in seconds.
 
 ---
 
 ## What It Does
 
-You spot a distressed property while driving or walking. You text the address to your D4D number. The tool does the rest:
+You spot a distressed property while driving or walking. You text the address to your Dibs bot. The tool does the rest:
 
-1. **Capture** -- AI parses the address and any condition notes from your text.
-2. **Skip trace** -- Automatically looks up the property owner, phone numbers, emails, and mailing address via Tracerfy.
-3. **Campaign** -- Starts a multi-step outreach cadence (call, door knock, letters) and texts you reminders when each step is due.
-4. **Manage** -- Mark steps done, add notes, kill dead leads, check status -- all via text commands.
+1. **Capture** — AI parses the address and any condition notes from your text.
+2. **Skip trace** — Automatically looks up the property owner, phone numbers, emails, and mailing address via Tracerfy.
+3. **Campaign** — Starts a multi-step outreach cadence (call, door knock, letters) and texts you reminders when each step is due.
+4. **Manage** — Mark steps done, add notes, kill dead leads, check status — all via text commands.
 
-Desktop review happens in Airtable. SMS is the only write path. The tool only ever messages you -- never a property owner or third party.
+Desktop review happens in Airtable. The chat channel is the only write path. The tool only ever messages you — never a property owner or third party.
 
 ---
 
@@ -22,17 +22,17 @@ Desktop review happens in Airtable. SMS is the only write path. The tool only ev
 ```
   YOU (iPhone)
     |
-    |  SMS or Telegram message
+    |  Telegram message (or SMS via Twilio)
     v
-+------------------+
-|  Twilio / Telegram|  (inbound webhook)
-+------------------+
-         |
-         v
++----------------------+
+|  Telegram / Twilio   |  (inbound webhook)
++----------------------+
+            |
+            v
 +------------------+       +------------------+
 |   FastAPI app    | ----> | Claude Haiku 4.5 |
 |  (stateless)     |       | (parse address   |
-+------------------+       |  + commands)      |
++------------------+       |  + commands)     |
     |          |            +------------------+
     |          |
     v          v
@@ -46,28 +46,41 @@ Desktop review happens in Airtable. SMS is the only write path. The tool only ev
           emails, mailing address
           written back to Airtable
 
-  Reply SMS/Telegram sent back to you
-  with confirmation + owner summary
+  Reply sent back to you via the same
+  channel with confirmation + owner summary
 ```
 
-All processing is stateless. Airtable is the database. SMS (or Telegram) is the only write path.
+All processing is stateless. Airtable is the database. The chat channel (Telegram or SMS) is the only write path.
 
 ---
 
 ## Features
 
-- **One-text capture** -- text an address, get owner info back in seconds
-- **AI parsing** -- natural language input, no rigid format required
-- **Auto skip trace** -- owner lookup fires on capture by default (opt out with `-ns`)
-- **Owner-occupied detection** -- compares property address to owner mailing address
-- **Daily digest** -- morning notification listing leads that need action today
-- **Auto-email** -- sends templated emails to owners at the Email and Quarterly Drip campaign steps
-- **Campaign tracking** -- multi-step outreach cadence per lead
-- **Duplicate detection** -- won't re-add an address you're already tracking
-- **Fuzzy address matching** -- commands work with partial addresses ("4823 32nd")
-- **Telegram support** -- use Telegram instead of Twilio for zero-cost messaging
-- **Airtable UI** -- sortable, filterable lead views on desktop and mobile
-- **iOS Shortcut** -- one-tap or "Hey Siri, log this house" hands-free capture
+- **One-text capture** — text an address, get owner info back in seconds
+- **AI parsing** — natural language input, no rigid format required
+- **Auto skip trace** — owner lookup fires on capture by default (opt out with `-ns`)
+- **Owner-occupied detection** — compares property address to owner mailing address
+- **Daily digest** — morning notification listing leads that need action today
+- **Auto-email** — sends templated emails to owners at the Email and Quarterly Drip campaign steps
+- **Campaign tracking** — multi-step outreach cadence per lead
+- **Duplicate detection** — won't re-add an address you're already tracking
+- **Fuzzy address matching** — commands work with partial addresses ("1234 Main")
+- **Telegram-first** — free messaging, no carrier registration required
+- **Twilio SMS optional** — works with Siri, CarPlay, and iOS Shortcuts if you want full SMS
+- **Airtable UI** — sortable, filterable lead views on desktop and mobile
+- **iOS Shortcut** — one-tap or "Hey Siri, log this house" hands-free capture
+
+---
+
+## Why Telegram (and why Twilio is optional)
+
+This started as an SMS tool. In practice, **Telegram is the better default**:
+
+- **Free.** No per-message cost, no $1.15/mo phone number, no monthly minimums.
+- **No brand verification.** Twilio (and every other US SMS provider) now enforces A2P 10DLC registration. Your webhook domain must match the LLC name you register with — if it doesn't, you'll get rejected. Telegram has no equivalent gate.
+- **Same UX.** Send a message, get a reply. Works hands-free from iPhone via Siri Shortcuts the same way SMS does.
+
+Twilio support is still in the codebase for anyone whose business name and domain happen to align (or who already has a registered campaign). Treat it as the advanced path.
 
 ---
 
@@ -77,19 +90,19 @@ All processing is stateless. Airtable is the database. SMS (or Telegram) is the 
 
 | Message | What happens |
 |---------|-------------|
-| `4823 32nd Ave NE Seattle` | Log + skip trace + start campaign |
-| `4823 32nd Ave NE -ns` | Log only, no skip trace |
-| `4823 32nd Ave NE -nc` | Log + skip trace, no campaign |
-| `4823 32nd Ave NE. Vacant, boarded windows` | Log with condition notes |
+| `1234 Main St Seattle` | Log + skip trace + start campaign |
+| `1234 Main St -ns` | Log only, no skip trace |
+| `1234 Main St -nc` | Log + skip trace, no campaign |
+| `1234 Main St. Vacant, boarded windows` | Log with condition notes |
 
 ### Commands
 
 | Command | Example | What it does |
 |---------|---------|-------------|
-| `done <addr>` | `done 4823 32nd` | Mark current campaign step complete, advance to next |
-| `status <addr>` | `status 4823 32nd` | Get lead details: owner, phones, status, next step |
-| `note <addr> <text>` | `note 4823 32nd called owner no answer` | Append a timestamped note |
-| `kill <addr>` | `kill 4823 32nd` | Mark lead dead, stop campaign |
+| `done <addr>` | `done 1234 Main` | Mark current campaign step complete, advance to next |
+| `status <addr>` | `status 1234 Main` | Get lead details: owner, phones, status, next step |
+| `note <addr> <text>` | `note 1234 Main called owner no answer` | Append a timestamped note |
+| `kill <addr>` | `kill 1234 Main` | Mark lead dead, stop campaign |
 | `list` | `list` | Count of all leads by status |
 | `help` | `help` | Show command list |
 
@@ -105,13 +118,13 @@ Address fragments work for all commands. If multiple leads match, you get a numb
 - An [Airtable](https://airtable.com) account (free tier works)
 - An [Anthropic](https://console.anthropic.com) API key
 - A [Tracerfy](https://tracerfy.com) API key (for skip tracing)
-- Either a Twilio account OR a Telegram bot (see paths below)
+- A Telegram account (default path) — or a Twilio account (optional)
 
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/YOUR_USER/d4d-app.git
-cd d4d-app
+git clone https://github.com/YOUR_USER/dibs-driving-for-dollars.git
+cd dibs-driving-for-dollars
 python -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -149,51 +162,53 @@ Then generate a [Personal Access Token](https://airtable.com/create/tokens) with
 
 ### 3. Configure environment
 
-Copy `.env.example` or create `.env`:
+Copy `.env.example` to `.env`:
 
 ```bash
 # Required
 ANTHROPIC_API_KEY=sk-ant-...
 AIRTABLE_PAT=pat...
 AIRTABLE_BASE_ID=appXXXXXXXX
-MY_PHONE_NUMBER=+1XXXXXXXXXX
-
-# Twilio (for SMS path)
-TWILIO_ACCOUNT_SID=AC...
-TWILIO_AUTH_TOKEN=...
-TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
+MY_PHONE_NUMBER=+1XXXXXXXXXX    # used by SMS path and for outbound digest fallback
 
 # Tracerfy (for skip tracing)
 TRACERFY_API_KEY=...
 
-# Telegram (alternative to Twilio)
+# Telegram (default messaging path)
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=...
+
+# Twilio (optional SMS path — only if you've completed A2P 10DLC registration)
+TWILIO_ACCOUNT_SID=AC...
+TWILIO_AUTH_TOKEN=...
+TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
 ```
 
-### 4a. Easy Setup (Telegram)
+### 4. Set up Telegram (recommended)
 
-No phone number purchase required. Free messaging.
+Free, no phone-number purchase, no brand verification.
 
-1. Message [@BotFather](https://t.me/BotFather) on Telegram. Send `/newbot`, follow the prompts, and copy the bot token.
-2. Start a chat with your new bot. Send it any message.
+1. Message [@BotFather](https://t.me/BotFather) on Telegram. Send `/newbot`, follow the prompts, copy the bot token.
+2. Start a chat with your new bot. Send it any message so it can see you.
 3. Get your chat ID: visit `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates` and find `"chat":{"id":XXXXXXX}`.
 4. Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in your `.env`.
-5. Deploy the app (see below), then set the webhook:
-   ```
-   curl -X POST "https://api.telegram.org/bot<YOUR_TOKEN>/setWebhook?url=https://your-app.railway.app/telegram"
+5. Deploy the app (see below), then register the webhook:
+   ```bash
+   curl -X POST "https://api.telegram.org/bot<YOUR_TOKEN>/setWebhook?url=https://your-app.up.railway.app/telegram"
    ```
 
-### 4b. Full Setup (Twilio SMS)
+### 4b. Set up Twilio SMS (optional / advanced)
 
-Real SMS -- works with Siri, CarPlay, and iOS Shortcuts.
+> Heads up: as of 2024+, US SMS through Twilio requires **A2P 10DLC** brand registration. Your registered LLC name has to match the domain/brand on file. If they don't line up, your campaign will be rejected and your messages won't deliver. Telegram avoids this entirely.
 
-1. Create a [Twilio](https://www.twilio.com) account. Buy a phone number (~$1.15/mo).
-2. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER` in your `.env`.
-3. Deploy the app (see below).
-4. In Twilio console, go to your phone number's settings. Set the **Messaging webhook** to:
+If you're set up for it:
+
+1. Create a [Twilio](https://www.twilio.com) account and buy a phone number.
+2. Complete A2P 10DLC brand + campaign registration.
+3. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER` in your `.env`.
+4. Deploy the app, then in the Twilio console set the **Messaging webhook** on your number to:
    ```
-   https://your-app.railway.app/sms
+   https://your-app.up.railway.app/sms
    ```
    Method: POST.
 
@@ -203,13 +218,13 @@ Real SMS -- works with Siri, CarPlay, and iOS Shortcuts.
 uvicorn app.main:app --reload --port 8000
 ```
 
-For local testing with Twilio, use [ngrok](https://ngrok.com) to expose your local server:
+For local testing of the webhook, expose your local server with [ngrok](https://ngrok.com):
 
 ```bash
 ngrok http 8000
 ```
 
-Then set the ngrok URL as your Twilio webhook.
+Then point your Telegram (or Twilio) webhook at the ngrok URL.
 
 ---
 
@@ -221,12 +236,12 @@ Then set the ngrok URL as your Twilio webhook.
 | `AIRTABLE_PAT` | Yes | Airtable Personal Access Token |
 | `AIRTABLE_BASE_ID` | Yes | Airtable base ID (starts with `app`) |
 | `MY_PHONE_NUMBER` | Yes | Your phone number in E.164 format (`+1XXXXXXXXXX`) |
+| `TELEGRAM_BOT_TOKEN` | Telegram path | Telegram bot token from BotFather |
+| `TELEGRAM_CHAT_ID` | Telegram path | Your Telegram chat ID |
 | `TWILIO_ACCOUNT_SID` | SMS path | Twilio account SID |
 | `TWILIO_AUTH_TOKEN` | SMS path | Twilio auth token |
 | `TWILIO_PHONE_NUMBER` | SMS path | Your Twilio phone number |
 | `TRACERFY_API_KEY` | No | Tracerfy API key. Without it, skip trace is disabled. |
-| `TELEGRAM_BOT_TOKEN` | Telegram path | Telegram bot token from BotFather |
-| `TELEGRAM_CHAT_ID` | Telegram path | Your Telegram chat ID |
 | `RESEND_API_KEY` | Resend path | Resend API key (starts with `re_`) |
 | `SMTP_EMAIL` | Auto-email | Sender email address (your verified domain for Resend, or Gmail for SMTP) |
 | `SMTP_PASSWORD` | SMTP path | Gmail app password (not needed if using Resend) |
@@ -242,8 +257,8 @@ Then set the ngrok URL as your Twilio webhook.
 
 The scheduler runs inside the app process (APScheduler). Every morning at `DIGEST_HOUR` (default 8am Pacific), it:
 
-1. **Sends you a digest** -- lists leads that need manual action today (calls, door knocks, letters coming due). Delivered via Telegram if configured, otherwise SMS.
-2. **Auto-sends emails** -- for leads on the Email or Quarterly Drip step, sends a templated email to the owner and advances the campaign. Only runs when `AUTO_EMAIL_ENABLED=true`.
+1. **Sends you a digest** — lists leads that need manual action today (calls, door knocks, letters coming due). Delivered via Telegram if configured, otherwise SMS.
+2. **Auto-sends emails** — for leads on the Email or Quarterly Drip step, sends a templated email to the owner and advances the campaign. Only runs when `AUTO_EMAIL_ENABLED=true`.
 
 ### Enabling auto-email
 
@@ -276,9 +291,9 @@ Edit these templates to match your voice before enabling auto-email. Set `YOUR_N
 
 ### Email backend: Resend (Railway / PaaS)
 
-Railway and most PaaS hosts block outbound SMTP. Use Resend's API instead (free tier = 100 emails/day):
+Railway and most PaaS hosts block outbound SMTP. Use Resend's API instead (free tier = 3,000 emails/month):
 
-1. Sign up at [resend.com](https://resend.com) (free tier: 3,000 emails/month, no time limit).
+1. Sign up at [resend.com](https://resend.com).
 2. Add and verify your domain (Domains > Add Domain — add the DNS records they provide).
 3. Create an API key (API Keys > Create API Key).
 4. Set `RESEND_API_KEY` and `SMTP_EMAIL` (e.g., `hello@yourdomain.com`) in your environment.
@@ -299,7 +314,7 @@ When `RESEND_API_KEY` is not set, the app falls back to Gmail SMTP automatically
 
 ### Opt-out handling
 
-Each email includes "reply stop" language. If an owner replies stop, check the **Email Opt Out** checkbox in Airtable -- the scheduler will skip them going forward.
+Each email includes "reply stop" language. If an owner replies stop, check the **Email Opt Out** checkbox in Airtable — the scheduler will skip them going forward.
 
 ### Manual trigger
 
@@ -322,13 +337,13 @@ The app is configured for [Railway](https://railway.app) out of the box.
    ```
    web: uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
    ```
-5. Grab your deployment URL and set it as your Twilio or Telegram webhook.
+5. Grab your deployment URL and set it as your Telegram (or Twilio) webhook.
 
 ---
 
 ## iOS Shortcut
 
-One-tap or "Hey Siri, log this house" capture. The shortcut grabs your GPS location, reverse-geocodes it to a street address, and sends it as an SMS to your D4D number.
+One-tap or "Hey Siri, log this house" capture. The shortcut grabs your GPS location, reverse-geocodes it to a street address, and sends it as a message to your Dibs bot.
 
 Setup takes 2 minutes. See [docs/ios-shortcut-setup.md](docs/ios-shortcut-setup.md) for step-by-step instructions.
 
@@ -340,14 +355,14 @@ Estimated monthly cost at ~30 leads/month:
 
 | Service | Cost | Notes |
 |---------|------|-------|
-| Twilio | ~$2/mo | $1.15/mo number + $0.0079/msg. Skip if using Telegram. |
+| Telegram | $0 | Default messaging path. Free, no carrier registration. |
+| Twilio | ~$2/mo | Optional. $1.15/mo number + $0.0079/msg. Requires A2P 10DLC. |
 | Tracerfy | ~$3-7/mo | ~$0.10-0.25 per skip trace. 0 credits on a miss. |
 | Anthropic (Haiku) | ~$0.50/mo | One parse call per inbound message. Haiku is cheap. |
+| Resend | $0 | Free tier covers 3,000 emails/mo. |
 | Railway | $5/mo | Hobby plan. Sleeps when idle. |
 | Airtable | $0 | Free tier: 1,000 records, 1,000 API calls/mo. |
-| **Total** | **~$10-15/mo** | Well under the $25/mo ceiling. |
-
-Using Telegram instead of Twilio drops the total by ~$2/mo.
+| **Total (Telegram path)** | **~$8-12/mo** | Well under the $25/mo ceiling. |
 
 ---
 
@@ -371,17 +386,17 @@ The sequence is defined in code (`CAMPAIGN_SEQUENCE` in `app/main.py`) and can b
 ## Project Structure
 
 ```
-d4d-app/
+dibs-driving-for-dollars/
   app/
     main.py            # FastAPI app, webhook handler, command routing
-    parser.py          # Claude Haiku SMS parser
+    parser.py          # Claude Haiku message parser
     sms.py             # Twilio outbound SMS
     telegram_bot.py    # Telegram outbound messages + webhook setup
-    reply.py           # Channel-aware reply routing (SMS or Telegram)
+    reply.py           # Channel-aware reply routing (Telegram or SMS)
     airtable_client.py # Airtable read/write operations
     skip_trace.py      # Tracerfy skip trace integration
     scheduler.py       # Daily digest + auto-email orchestration
-    emailer.py         # Gmail SMTP sender + template engine
+    emailer.py         # Resend / Gmail SMTP sender + template engine
     config.py          # Environment variable loading
   templates/
     initial_outreach.txt   # Email template for Email campaign step
@@ -395,6 +410,7 @@ d4d-app/
   .env.example           # Template for environment variables
   Procfile               # Railway/Heroku deploy command
   requirements.txt
+  PLAN.md                # Original planning brief / design notes
 ```
 
 ---

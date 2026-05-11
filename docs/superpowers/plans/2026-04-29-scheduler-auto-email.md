@@ -827,7 +827,7 @@ railway up --detach
 - [ ] **Step 3: Test the cron endpoint manually**
 
 ```bash
-curl "https://d4d-sms-tool-production.up.railway.app/cron/daily?secret=$CRON_SECRET"
+curl "https://your-app.up.railway.app/cron/daily?secret=$CRON_SECRET"
 ```
 
 Expected: `{"status":"ok","message":"Daily job triggered"}` and a digest message arrives via Telegram/SMS.
@@ -835,7 +835,7 @@ Expected: `{"status":"ok","message":"Daily job triggered"}` and a digest message
 - [ ] **Step 4: Test auth rejection**
 
 ```bash
-curl "https://d4d-sms-tool-production.up.railway.app/cron/daily"
+curl "https://your-app.up.railway.app/cron/daily"
 ```
 
 Expected: 403 Forbidden

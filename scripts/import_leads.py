@@ -146,7 +146,7 @@ def derive_status(row, has_owner: bool) -> str:
 
 
 def main():
-    wb = openpyxl.load_workbook("Existing leads to parse and re-upload.xlsx")
+    wb = openpyxl.load_workbook("data/Existing leads to parse and re-upload.xlsx")
     ws = wb["Prospects "]
 
     leads = []
