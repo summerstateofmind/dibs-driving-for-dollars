@@ -13,6 +13,12 @@ TRACERFY_API_KEY = os.getenv("TRACERFY_API_KEY", "")
 MY_PHONE_NUMBER = os.getenv("MY_PHONE_NUMBER", "")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+# Shared secret Telegram echoes back in X-Telegram-Bot-Api-Secret-Token on every
+# webhook call. /telegram rejects everything while this is empty.
+TELEGRAM_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
+# Public origin of this deployment, e.g. https://your-app.up.railway.app (no path).
+# Used to verify Twilio signatures behind a proxy and to register the Telegram webhook.
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 SMTP_EMAIL = os.getenv("SMTP_EMAIL", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")

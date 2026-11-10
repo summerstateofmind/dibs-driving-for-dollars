@@ -23,10 +23,23 @@ def send_telegram(body: str, chat_id: str = ""):
 
 
 def set_webhook(url: str):
-    """Register a webhook URL with Telegram."""
+    """Register a webhook URL with Telegram, including the shared secret.
+
+    Telegram sends TELEGRAM_WEBHOOK_SECRET back in the
+    X-Telegram-Bot-Api-Secret-Token header of every update, which /telegram
+    requires. Refuses to register a webhook without a secret.
+    """
+    if not config.TELEGRAM_WEBHOOK_SECRET:
+        raise RuntimeError(
+            "TELEGRAM_WEBHOOK_SECRET is not set; refusing to register an unauthenticated webhook"
+        )
     resp = httpx.post(
         f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/setWebhook",
-        json={"url": url},
+        json={
+            "url": url,
+            "secret_token": config.TELEGRAM_WEBHOOK_SECRET,
+            "allowed_updates": ["message"],
+        },
         timeout=10,
     )
     return resp.json()
