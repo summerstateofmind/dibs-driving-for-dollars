@@ -1,9 +1,11 @@
+import hmac
 import logging
 import re
 from datetime import datetime, timezone
 
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.responses import Response
+from twilio.request_validator import RequestValidator
 
 from app import config
 from app.airtable_client import create_lead, find_leads_by_address, update_lead, get_all_leads
@@ -15,7 +17,14 @@ from app.skip_trace import skip_trace
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-app = FastAPI(title="Dibs — Driving for Dollars")
+# Interactive docs and the OpenAPI schema are disabled: this is a private,
+# single-user webhook service and should not advertise its routes.
+app = FastAPI(
+    title="Dibs — Driving for Dollars",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
 
 
@@ -24,18 +33,66 @@ def on_startup():
     start_scheduler()
 
 
-# --- Webhook endpoint ---
+# --- Request authentication helpers ---
+
+
+def _secrets_match(provided: str, expected: str) -> bool:
+    """Constant-time comparison. An empty expected secret never matches (fail closed)."""
+    if not expected or not provided:
+        return False
+    return hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8"))
+
+
+def _forbidden() -> Response:
+    return Response(status_code=403, content="Forbidden")
+
+
+def _public_url(request: Request) -> str:
+    """The URL the outside world used to reach this request.
+
+    Twilio signs the public URL, but behind Railway's proxy the app sees plain
+    http and an internal host. Prefer PUBLIC_BASE_URL; otherwise rebuild the
+    URL from the proxy's forwarded headers.
+    """
+    path = request.url.path
+    if request.url.query:
+        path += f"?{request.url.query}"
+    if config.PUBLIC_BASE_URL:
+        return config.PUBLIC_BASE_URL + path
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme).split(",")[0].strip()
+    host = (
+        request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    ).split(",")[0].strip()
+    return f"{proto}://{host}{path}"
+
+
+# --- Webhook endpoints ---
 
 
 @app.post("/sms")
 async def handle_sms(request: Request, background_tasks: BackgroundTasks):
-    """Twilio inbound SMS webhook. Returns immediately, processes in background."""
+    """Twilio inbound SMS webhook. Returns immediately, processes in background.
+
+    Every request must carry a valid X-Twilio-Signature. While the SMS path is
+    not configured (no auth token or no operator number) all requests are rejected.
+    """
+    if not config.TWILIO_AUTH_TOKEN or not config.MY_PHONE_NUMBER:
+        log.warning("Rejected SMS webhook: SMS path is not configured")
+        return _forbidden()
+
     form = await request.form()
-    from_number = form.get("From", "")
-    body = form.get("Body", "").strip()
+    params = {k: v for k, v in form.items() if isinstance(v, str)}
+    signature = request.headers.get("x-twilio-signature", "")
+    validator = RequestValidator(config.TWILIO_AUTH_TOKEN)
+    if not signature or not validator.validate(_public_url(request), params, signature):
+        log.warning("Rejected SMS webhook: missing or invalid Twilio signature")
+        return _forbidden()
+
+    from_number = params.get("From", "")
+    body = params.get("Body", "").strip()
 
     if from_number != config.MY_PHONE_NUMBER:
-        log.warning("Rejected SMS from %s", from_number)
+        log.warning("Ignored SMS from an unexpected sender")
         return Response(content=EMPTY_TWIML, media_type="text/xml")
 
     if not body:
@@ -48,14 +105,38 @@ async def handle_sms(request: Request, background_tasks: BackgroundTasks):
 
 @app.post("/telegram")
 async def handle_telegram(request: Request, background_tasks: BackgroundTasks):
-    """Telegram Bot webhook. Returns 200 immediately, processes in background."""
-    data = await request.json()
-    message = data.get("message", {})
-    chat_id = str(message.get("chat", {}).get("id", ""))
-    text = (message.get("text") or "").strip()
+    """Telegram Bot webhook. Returns 200 immediately, processes in background.
 
-    if config.TELEGRAM_CHAT_ID and chat_id != config.TELEGRAM_CHAT_ID:
-        log.warning("Rejected Telegram from chat_id %s", chat_id)
+    Telegram sends the secret registered via setWebhook in the
+    X-Telegram-Bot-Api-Secret-Token header. Requests without the right secret
+    are rejected, and so is everything while TELEGRAM_WEBHOOK_SECRET or
+    TELEGRAM_CHAT_ID is unset.
+    """
+    if not config.TELEGRAM_WEBHOOK_SECRET or not config.TELEGRAM_CHAT_ID:
+        log.warning("Rejected Telegram webhook: secret or chat ID is not configured")
+        return _forbidden()
+
+    provided = request.headers.get("x-telegram-bot-api-secret-token", "")
+    if not _secrets_match(provided, config.TELEGRAM_WEBHOOK_SECRET):
+        log.warning("Rejected Telegram webhook: missing or wrong secret token")
+        return _forbidden()
+
+    try:
+        data = await request.json()
+    except ValueError:
+        return Response(status_code=400, content="Bad Request")
+    if not isinstance(data, dict):
+        return Response(status_code=400, content="Bad Request")
+
+    message = data.get("message") or {}
+    chat = message.get("chat") if isinstance(message, dict) else None
+    chat_id = str((chat or {}).get("id", "")) if isinstance(chat or {}, dict) else ""
+    text = (message.get("text") or "").strip() if isinstance(message, dict) else ""
+    if not isinstance(text, str):
+        text = ""
+
+    if chat_id != config.TELEGRAM_CHAT_ID:
+        log.warning("Ignored Telegram message from an unexpected chat")
         return {"ok": True}
 
     if not text:
@@ -72,10 +153,26 @@ def health():
 
 
 @app.get("/cron/daily")
-def cron_daily(secret: str = ""):
-    """Manual trigger for the daily digest job. Protected by CRON_SECRET."""
-    if not config.CRON_SECRET or secret != config.CRON_SECRET:
-        return Response(status_code=403, content="Forbidden")
+def cron_daily(request: Request, secret: str = ""):
+    """Manual trigger for the daily digest job. Protected by CRON_SECRET.
+
+    Send the secret in an `X-Cron-Secret` header or as `Authorization: Bearer <secret>`.
+    Rejects everything while CRON_SECRET is unset.
+    """
+    provided = request.headers.get("x-cron-secret", "")
+    if not provided:
+        scheme, _, token = request.headers.get("authorization", "").partition(" ")
+        if scheme.lower() == "bearer":
+            provided = token.strip()
+    if not provided and secret:
+        # DEPRECATED: a secret in the query string ends up in access logs and
+        # browser history. Kept only so existing callers keep working; remove
+        # once they send a header instead.
+        log.warning("/cron/daily called with the deprecated ?secret= query parameter")
+        provided = secret
+
+    if not _secrets_match(provided, config.CRON_SECRET):
+        return _forbidden()
     run_daily_job()
     return {"status": "ok", "message": "Daily job triggered"}
 
