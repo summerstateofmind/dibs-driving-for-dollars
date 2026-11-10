@@ -29,9 +29,18 @@ def create_lead(*, address, city, state, zip_code, notes, status, skip_trace_sta
     })
 
 
+def _escape_formula_string(value):
+    """Escape text for use inside a double-quoted Airtable formula string.
+
+    Backslashes are escaped first so an embedded or trailing backslash cannot
+    cancel out the escaping of a quote and break out of the string.
+    """
+    return str(value).replace("\\", "\\\\").replace('"', '\\"')
+
+
 def find_leads_by_address(fragment):
     """Find leads whose Address contains the given fragment (case-insensitive)."""
-    safe = fragment.replace('"', '\\"')
+    safe = _escape_formula_string(fragment)
     formula = f'FIND(LOWER("{safe}"), LOWER({{Address}}))'
     return _get_table().all(formula=formula)
 
