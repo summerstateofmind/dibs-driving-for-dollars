@@ -130,6 +130,12 @@ source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+`requirements.txt` is a fully pinned lockfile generated from `requirements.in`. To update dependencies, edit `requirements.in` and regenerate:
+
+```bash
+uv pip compile requirements.in --universal --python-version 3.11 --no-header --no-annotate -o requirements.txt
+```
+
 ### 2. Set up Airtable
 
 Create a base with a table called **Leads** and these fields:
@@ -177,6 +183,10 @@ TRACERFY_API_KEY=...
 # Telegram (default messaging path)
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=...
+TELEGRAM_WEBHOOK_SECRET=...     # random string; see step 4
+
+# Public URL of your deployment (no trailing path)
+PUBLIC_BASE_URL=https://your-app.up.railway.app
 
 # Twilio (optional SMS path — only if you've completed A2P 10DLC registration)
 TWILIO_ACCOUNT_SID=AC...
@@ -191,11 +201,21 @@ Free, no phone-number purchase, no brand verification.
 1. Message [@BotFather](https://t.me/BotFather) on Telegram. Send `/newbot`, follow the prompts, copy the bot token.
 2. Start a chat with your new bot. Send it any message so it can see you.
 3. Get your chat ID: visit `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates` and find `"chat":{"id":XXXXXXX}`.
-4. Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in your `.env`.
-5. Deploy the app (see below), then register the webhook:
+4. Generate a webhook secret (letters, digits, `_` and `-` only):
    ```bash
-   curl -X POST "https://api.telegram.org/bot<YOUR_TOKEN>/setWebhook?url=https://your-app.up.railway.app/telegram"
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
    ```
+5. Set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_WEBHOOK_SECRET`, and `PUBLIC_BASE_URL` in your `.env` (and in your host's environment variables).
+6. Deploy the app (see below), then register the webhook with the secret:
+   ```bash
+   python scripts/set_telegram_webhook.py https://your-app.up.railway.app
+   ```
+   Or by hand:
+   ```bash
+   curl -X POST "https://api.telegram.org/bot<YOUR_TOKEN>/setWebhook"      -d "url=https://your-app.up.railway.app/telegram"      -d "secret_token=<YOUR_TELEGRAM_WEBHOOK_SECRET>"
+   ```
+
+The `/telegram` endpoint only accepts requests that carry this secret in the `X-Telegram-Bot-Api-Secret-Token` header and come from your `TELEGRAM_CHAT_ID`. If either variable is unset, every request is rejected. Re-run the registration whenever you change the secret or the URL.
 
 ### 4b. Set up Twilio SMS (optional / advanced)
 
@@ -211,6 +231,9 @@ If you're set up for it:
    https://your-app.up.railway.app/sms
    ```
    Method: POST.
+5. Set `PUBLIC_BASE_URL` to the same origin (`https://your-app.up.railway.app`).
+
+The `/sms` endpoint verifies Twilio's `X-Twilio-Signature` on every request using `TWILIO_AUTH_TOKEN`. The signature covers the exact public URL, so the webhook URL in the Twilio console must match `PUBLIC_BASE_URL` + `/sms`. If `TWILIO_AUTH_TOKEN` or `MY_PHONE_NUMBER` is unset, every request is rejected.
 
 ### 5. Run locally
 
@@ -238,6 +261,8 @@ Then point your Telegram (or Twilio) webhook at the ngrok URL.
 | `MY_PHONE_NUMBER` | Yes | Your phone number in E.164 format (`+1XXXXXXXXXX`) |
 | `TELEGRAM_BOT_TOKEN` | Telegram path | Telegram bot token from BotFather |
 | `TELEGRAM_CHAT_ID` | Telegram path | Your Telegram chat ID |
+| `TELEGRAM_WEBHOOK_SECRET` | Telegram path | Random string (1-256 chars: letters, digits, `_`, `-`) registered with `setWebhook`. `/telegram` rejects all requests without it. |
+| `PUBLIC_BASE_URL` | Recommended | Public https origin of the deployment, e.g. `https://your-app.up.railway.app`. Used for Twilio signature checks and webhook registration. |
 | `TWILIO_ACCOUNT_SID` | SMS path | Twilio account SID |
 | `TWILIO_AUTH_TOKEN` | SMS path | Twilio auth token |
 | `TWILIO_PHONE_NUMBER` | SMS path | Your Twilio phone number |
@@ -249,7 +274,7 @@ Then point your Telegram (or Twilio) webhook at the ngrok URL.
 | `AUTO_EMAIL_ENABLED` | No | Set to `true` to enable auto-email. Defaults to `false`. |
 | `DIGEST_HOUR` | No | Hour (0-23) to send daily digest. Default: `8` |
 | `DIGEST_TIMEZONE` | No | Timezone for digest. Default: `America/Los_Angeles` |
-| `CRON_SECRET` | No | Secret for manual `/cron/daily?secret=...` trigger |
+| `CRON_SECRET` | No | Secret for the manual `/cron/daily` trigger, sent in an `X-Cron-Secret` header. The endpoint is disabled while unset. |
 
 ---
 
@@ -320,9 +345,11 @@ Each email includes "reply stop" language. If an owner replies stop, check the *
 
 You can trigger the daily job on demand:
 
+```bash
+curl -H "X-Cron-Secret: YOUR_CRON_SECRET" https://your-app.up.railway.app/cron/daily
 ```
-GET /cron/daily?secret=YOUR_CRON_SECRET
-```
+
+`Authorization: Bearer YOUR_CRON_SECRET` works too. The old `?secret=` query parameter is deprecated (it leaks into logs) and will be removed.
 
 ---
 
@@ -337,7 +364,7 @@ The app is configured for [Railway](https://railway.app) out of the box.
    ```
    web: uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
    ```
-5. Grab your deployment URL and set it as your Telegram (or Twilio) webhook.
+5. Grab your deployment URL, set it as `PUBLIC_BASE_URL`, and register it as your Telegram webhook with `python scripts/set_telegram_webhook.py` (or set it as the Twilio webhook).
 
 ---
 
@@ -405,11 +432,13 @@ dibs-driving-for-dollars/
     test_scheduler.py
     test_emailer.py
     test_airtable_filter.py
+    test_webhook_security.py
   docs/
     ios-shortcut-setup.md
   .env.example           # Template for environment variables
   Procfile               # Railway/Heroku deploy command
-  requirements.txt
+  requirements.in        # Loose dependency ranges (edit this)
+  requirements.txt       # Pinned lockfile generated from requirements.in
   PLAN.md                # Original planning brief / design notes
 ```
 
